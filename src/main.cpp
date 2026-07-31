@@ -1,28 +1,37 @@
 #include <Arduino.h>
+#include "config.h"
+#include "drivers/Sensor.h"
+#include "drivers/HumiditySensor.h"
+#include "drivers/SoilSensor.h"
+#include "drivers/TemperatureSensor.h"
+#include "drivers/LightSensor.h"
 
+HumiditySensor humiditySensor(PIN_DHT);
+SoilSensor soilSensor(PIN_SOIL_POT);
+TemperatureSensor temperatureSensor(PIN_TEMP);
+LightSensor lightSensor(PIN_LDR);
 
-#define RELAY_IRRIGATION_PIN 25
-#define RELAY_VENTILATION_PIN 26
-#define RELAY_LIGHT_PIN 27
-
-#define OLED_SDA_PIN 21
-#define OLED_SDC_PIN 22
-
-#define BUSSER_PIN  18
-//#define LED_PIN
-
-#define BTN_MODE_PIN 13
-#define BTN_IRRIGATION_PIN 12
-#define BTN_VENTILATION_PIN 14
-#define BTN_LIGHT_PIN 16
+DisplayManager displayManager;
+SensorsService sensorsService({&temperatureSensor, &humiditySensor, &soilSensor, &lightSensor});
 
 void setup() {
   // put your setup code here, to run once:
   Serial.begin(115200);
   Serial.println("Hello, ESP32!");
+
+  humiditySensor.init();
+  soilSensor.init();
+  temperatureSensor.init();
+  lightSensor.init();
+
+    displayManager.init();
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
+
+   sensorsService.checkAndUpdate();
+  displayManager.render();
+
   delay(10); // this speeds up the simulation
 }
