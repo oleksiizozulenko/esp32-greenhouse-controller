@@ -14,9 +14,10 @@
 #include "services/DisplayManager.h"
 
 // Sensor Drivers
-HumiditySensor humiditySensor(PIN_DHT);
+DHT dht(PIN_DHT, DHT_TYPE);
+HumiditySensor humiditySensor(PIN_DHT, &dht);
 SoilSensor soilSensor(PIN_SOIL_POT);
-TemperatureSensor temperatureSensor(PIN_TEMP);
+TemperatureSensor temperatureSensor(PIN_TEMP, &dht);
 LightSensor lightSensor(PIN_LDR);
 
 // Actuator Drivers

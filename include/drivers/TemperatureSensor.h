@@ -2,18 +2,39 @@
 #define TEMPERATURE_SENSOR_H
 
 #include <Arduino.h>
+#include <DHT.h>
 #include "Sensor.h"
 
 class TemperatureSensor : public Sensor {
 private:
+    DHT* dht;
+    bool isExternalDht;
     float lastTemperature;
 
 public:
-    TemperatureSensor(int pin) 
-        : Sensor(pin, "Temperature"), lastTemperature(NAN) {}
+    TemperatureSensor(int pin, DHT* externalDht = nullptr, uint8_t dhtType = DHT_TYPE) 
+        : Sensor(pin, "Temperature"), dht(nullptr), isExternalDht(false), lastTemperature(NAN) {
+        if (externalDht != nullptr) {
+            dht = externalDht;
+            isExternalDht = true;
+        } else {
+            dht = new DHT(pin, dhtType);
+            isExternalDht = false;
+        }
+    }
+
+    ~TemperatureSensor() override {
+        if (!isExternalDht && dht != nullptr) {
+            delete dht;
+            dht = nullptr;
+        }
+    }
 
     void init() override {
         pinMode(pin, INPUT);
+        if (dht != nullptr) {
+            dht->begin();
+        }
     }
 
     SensorData read() override {
@@ -24,7 +45,7 @@ public:
 
         lastReadTime = currentTime;
 
-        float temperature = adcToPercentage(analogRead(pin));
+        float temperature = dht ? dht->readTemperature() : NAN;
 
         if (isnan(temperature)) {
             return {lastTemperature, true};

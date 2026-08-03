@@ -2,18 +2,39 @@
 #define HUMIDITY_SENSOR_H
 
 #include <Arduino.h>
+#include <DHT.h>
 #include "Sensor.h"
 
 class HumiditySensor : public Sensor {
 private:
+    DHT* dht;
+    bool isExternalDht;
     float lastHumidity;
 
 public:
-    HumiditySensor(int pin) 
-        : Sensor(pin, "Humidity"), lastHumidity(NAN) {}
+    HumiditySensor(int pin, DHT* externalDht = nullptr, uint8_t dhtType = DHT_TYPE) 
+        : Sensor(pin, "Humidity"), dht(nullptr), isExternalDht(false), lastHumidity(NAN) {
+        if (externalDht != nullptr) {
+            dht = externalDht;
+            isExternalDht = true;
+        } else {
+            dht = new DHT(pin, dhtType);
+            isExternalDht = false;
+        }
+    }
+
+    ~HumiditySensor() override {
+        if (!isExternalDht && dht != nullptr) {
+            delete dht;
+            dht = nullptr;
+        }
+    }
 
     void init() override {
         pinMode(pin, INPUT);
+        if (dht != nullptr) {
+            dht->begin();
+        }
     }
 
     SensorData read() override {
@@ -24,7 +45,7 @@ public:
 
         lastReadTime = currentTime;
 
-        float humidity = adcToPercentage(analogRead(pin));
+        float humidity = dht ? dht->readHumidity() : NAN;
 
         if (isnan(humidity)) {
             return {lastHumidity, true};

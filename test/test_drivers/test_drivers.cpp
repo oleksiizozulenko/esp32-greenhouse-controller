@@ -2,6 +2,8 @@
 #include "../Arduino.h"
 #include "../MockSensor.h"
 #include "../MockActuator.h"
+#include "../../include/drivers/TemperatureSensor.h"
+#include "../../include/drivers/HumiditySensor.h"
 
 void setUp(void) {
     resetMockArduinoState();
@@ -34,6 +36,30 @@ void test_actuator_status_text(void) {
     TEST_ASSERT_EQUAL_STRING("ON", act.getStatusText());
 }
 
+void test_dht_temperature_sensor(void) {
+    DHT dht(19, DHT22);
+    dht.setTemperature(23.5f);
+    TemperatureSensor tempSensor(19, &dht);
+    tempSensor.init();
+
+    SensorData data = tempSensor.read();
+    TEST_ASSERT_FALSE(data.isError);
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 23.5f, data.value);
+    TEST_ASSERT_EQUAL_STRING("C", tempSensor.getUnit());
+}
+
+void test_dht_humidity_sensor(void) {
+    DHT dht(19, DHT22);
+    dht.setHumidity(62.0f);
+    HumiditySensor humSensor(19, &dht);
+    humSensor.init();
+
+    SensorData data = humSensor.read();
+    TEST_ASSERT_FALSE(data.isError);
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 62.0f, data.value);
+    TEST_ASSERT_EQUAL_STRING("%", humSensor.getUnit());
+}
+
 int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
@@ -41,6 +67,8 @@ int main(int argc, char **argv) {
 
     RUN_TEST(test_adc_conversions);
     RUN_TEST(test_actuator_status_text);
+    RUN_TEST(test_dht_temperature_sensor);
+    RUN_TEST(test_dht_humidity_sensor);
 
     return UNITY_END();
 }
