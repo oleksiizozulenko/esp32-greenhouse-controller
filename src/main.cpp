@@ -117,5 +117,8 @@ void loop() {
   // 4. Update ActuatorsService (executes automation logic in AUTO, button toggles in MANUAL)
   actuatorsService.update(mode == MODE_AUTOMATIC, readings, &btnIrrig, &btnVent, &btnLight);
 
+  // 5. Update OLED Display
+  displayManager.render(mode == MODE_AUTOMATIC, readings, actuatorsService);
+
   delay(10); // Simulation pacing
 }
