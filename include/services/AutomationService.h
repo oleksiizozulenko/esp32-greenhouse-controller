@@ -203,7 +203,10 @@ public:
         }
     }
 
-    void processManual(ButtonDriver* btnIrrig, ButtonDriver* btnVent, ButtonDriver* btnLight) {
+    void processManual(const SensorDataMap& readings, bool& highAlertActive,
+                       ButtonDriver* btnIrrig = nullptr,
+                       ButtonDriver* btnVent = nullptr,
+                       ButtonDriver* btnLight = nullptr) {
         Actuator* irrig = getActuator("Irrigation");
         if (btnIrrig != nullptr && btnIrrig->wasPressed() && irrig != nullptr) {
             if (irrig->isOn()) {
@@ -236,6 +239,35 @@ public:
                 light->turnOn();
             }
         }
+
+        // Evaluate sensor readings for critical emergency thresholds in MANUAL mode
+        SensorData tempData = readings.get("Temperature");
+        if (!tempData.isError && tempData.value > CRITICAL_TEMP_HIGH) {
+            highAlertActive = true;
+            Serial.printf("[MANUAL] CRITICAL ALERT: High Temp (%.2f°C > %.2f°C)!\n",
+                          tempData.value, CRITICAL_TEMP_HIGH);
+        }
+
+        SensorData humData = readings.get("Humidity");
+        if (!humData.isError && humData.value > CRITICAL_HUMIDITY_HIGH) {
+            highAlertActive = true;
+            Serial.printf("[MANUAL] CRITICAL ALERT: High Humidity (%.2f%% > %.2f%%)!\n",
+                          humData.value, CRITICAL_HUMIDITY_HIGH);
+        }
+
+        SensorData soilData = readings.get("Soil");
+        if (!soilData.isError && soilData.value > CRITICAL_SOIL_HIGH) {
+            highAlertActive = true;
+            Serial.printf("[MANUAL] CRITICAL ALERT: High Soil Potentiometer (%.2f%% > %.2f%%)!\n",
+                          soilData.value, CRITICAL_SOIL_HIGH);
+        }
+
+        SensorData lightData = readings.get("Light");
+        if (!lightData.isError && lightData.value > CRITICAL_LIGHT_HIGH) {
+            highAlertActive = true;
+            Serial.printf("[MANUAL] CRITICAL ALERT: High Light Level (%.2f > %.2f)!\n",
+                          lightData.value, CRITICAL_LIGHT_HIGH);
+        }
     }
 
     void update(bool isAutoMode, const SensorDataMap& readings,
@@ -247,7 +279,7 @@ public:
         if (isAutoMode) {
             processAutomatic(readings, highAlertActive);
         } else {
-            processManual(btnIrrig, btnVent, btnLight);
+            processManual(readings, highAlertActive, btnIrrig, btnVent, btnLight);
         }
 
         // Update LED_RED (Error), LED_GREEN (Working), and Buzzer (High data alarm)

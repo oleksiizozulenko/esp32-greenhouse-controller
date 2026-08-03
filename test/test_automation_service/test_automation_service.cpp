@@ -303,6 +303,62 @@ void test_manual_mode_null_drivers_safety(void) {
     TEST_ASSERT_FALSE(irrigActuator->isOn());
 }
 
+void test_manual_mode_critical_temp_alert(void) {
+    tempSensor->setData(65.0f, false); // > 60.0°C threshold
+    SensorDataMap readings(1);
+    readings[0] = {tempSensor, tempSensor->read()};
+
+    automation->update(false, readings);
+
+    TEST_ASSERT_EQUAL_UINT(1000, getMockBuzzerTone(PIN_BUZZER));
+}
+
+void test_manual_mode_critical_soil_alert(void) {
+    soilSensor->setData(90.0f, false); // > 85.0% threshold
+    SensorDataMap readings(1);
+    readings[0] = {soilSensor, soilSensor->read()};
+
+    automation->update(false, readings);
+
+    TEST_ASSERT_EQUAL_UINT(1000, getMockBuzzerTone(PIN_BUZZER));
+}
+
+void test_manual_mode_critical_light_alert(void) {
+    lightSensor->setData(12000.0f, false); // > 10000 threshold
+    SensorDataMap readings(1);
+    readings[0] = {lightSensor, lightSensor->read()};
+
+    automation->update(false, readings);
+
+    TEST_ASSERT_EQUAL_UINT(1000, getMockBuzzerTone(PIN_BUZZER));
+}
+
+void test_manual_mode_critical_humidity_alert(void) {
+    MockSensor humSensor(PIN_DHT, "Humidity", "%");
+    humSensor.setData(88.0f, false); // > 85.0% threshold
+    SensorDataMap readings(1);
+    readings[0] = {&humSensor, humSensor.read()};
+
+    automation->update(false, readings);
+
+    TEST_ASSERT_EQUAL_UINT(1000, getMockBuzzerTone(PIN_BUZZER));
+}
+
+void test_manual_mode_safe_sensors_no_alert(void) {
+    tempSensor->setData(25.0f, false);
+    soilSensor->setData(50.0f, false);
+    lightSensor->setData(5000.0f, false);
+
+    SensorDataMap readings(3);
+    readings[0] = {tempSensor, tempSensor->read()};
+    readings[1] = {soilSensor, soilSensor->read()};
+    readings[2] = {lightSensor, lightSensor->read()};
+
+    automation->update(false, readings);
+
+    TEST_ASSERT_EQUAL_UINT(0, getMockBuzzerTone(PIN_BUZZER));
+}
+
 // ----------------------------------------------------
 // 6. System Indicators & Buzzer Alarm Tests
 // ----------------------------------------------------
@@ -370,6 +426,11 @@ int main(int argc, char **argv) {
 
     RUN_TEST(test_manual_mode_button_toggles);
     RUN_TEST(test_manual_mode_null_drivers_safety);
+    RUN_TEST(test_manual_mode_critical_temp_alert);
+    RUN_TEST(test_manual_mode_critical_soil_alert);
+    RUN_TEST(test_manual_mode_critical_light_alert);
+    RUN_TEST(test_manual_mode_critical_humidity_alert);
+    RUN_TEST(test_manual_mode_safe_sensors_no_alert);
 
     RUN_TEST(test_system_indicators_normal_operation);
     RUN_TEST(test_system_indicators_sensor_error_led);

@@ -60,6 +60,12 @@
 #define SENSOR_HUMIDITY_MAX_ERROR 90.0f  // Вологість > 90% -> Помилка системи
 #define SENSOR_TEMP_MIN_ERROR     -5.0f  // Температура < -5°C -> Помилка системи
 
+// Пороги критичних ситуацій у Manual Mode (Critical Emergency Thresholds)
+#define CRITICAL_LIGHT_HIGH       10000.0f // Критична освітленість (>10000 lumen/lux)
+#define CRITICAL_TEMP_HIGH        60.0f    // Критична температура (>60°C)
+#define CRITICAL_HUMIDITY_HIGH    85.0f    // Критична вологість (>85%)
+#define CRITICAL_SOIL_HIGH        85.0f    // Критична вологість ґрунту / потенціометра (>85%)
+
 // ==========================================
 // 3. SYSTEM TIMINGS (Таймаути та інтервали)
 // ==========================================
