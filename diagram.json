@@ -55,11 +55,11 @@
       "attrs": { "color": "yellow", "xray": "1", "label": "Mode" }
     },
     {
-      "type": "wokwi-stepper-motor",
-      "id": "stepper1",
+      "type": "wokwi-servo",
+      "id": "servo1",
       "top": 934.81,
       "left": 106.03,
-      "attrs": { "size": "17", "arrow": "orange" }
+      "attrs": {}
     },
     {
       "type": "wokwi-led-strip",
@@ -140,8 +140,9 @@
     [ "ring1:GND", "esp:GND.1", "black", [ "v19.2", "h-144", "v-720" ] ],
     [ "ring1:VCC", "esp:5V", "red", [ "v48", "h-144", "v-700.8" ] ],
     [ "ring1:DIN", "esp:16", "green", [ "v19.2", "h508.8", "v-528", "h-412.8", "v-201.6" ] ],
-    [ "stepper1:A+", "esp:5", "green", [ "v38.4", "h364.8", "v-700.8", "h-288", "v-336" ] ],
-    [ "stepper1:A-", "esp:GND.1", "black", [ "v28.8", "h-259.2", "v-988.8" ] ],
+    [ "servo1:PWM", "esp:5", "green", [ "v38.4", "h364.8", "v-700.8", "h-288", "v-336" ] ],
+    [ "servo1:V+", "esp:5V", "red", [ "v0" ] ],
+    [ "servo1:GND", "esp:GND.1", "black", [ "v28.8", "h-259.2", "v-988.8" ] ],
     [ "led1:A", "esp:4", "green", [ "v76.8", "h-403.2", "v-134.4" ] ],
     [ "led2:A", "esp:15", "green", [ "v105.6", "h-470.4", "v-134.4", "h-9.6" ] ]
   ],
