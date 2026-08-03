@@ -111,6 +111,18 @@ inline int digitalRead(int pin) {
     return HIGH; // default HIGH for INPUT_PULLUP
 }
 
+inline int analogRead(int pin) {
+    auto it = getMockArduinoState().pinValues.find(pin);
+    if (it != getMockArduinoState().pinValues.end()) {
+        return it->second;
+    }
+    return 0;
+}
+
+inline void setMockAnalogRead(int pin, int value) {
+    getMockArduinoState().pinValues[pin] = value;
+}
+
 inline void tone(int pin, unsigned int frequency, unsigned long duration = 0) {
     (void)duration;
     getMockArduinoState().buzzerTones[pin] = frequency;

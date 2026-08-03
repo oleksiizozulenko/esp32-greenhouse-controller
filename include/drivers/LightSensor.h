@@ -19,15 +19,17 @@ public:
     SensorData read() override {
         unsigned long currentTime = millis();
         if (currentTime - lastReadTime < readInterval && !isnan(lastLightLevel)) {
-            return {lastLightLevel, false};
+            bool isErr = isnan(lastLightLevel) || (lastLightLevel >= SENSOR_LIGHT_MAX_ERROR);
+            return {lastLightLevel, isErr};
         }
 
         lastReadTime = currentTime;
 
         float lightLevel = adcToPercentage(analogRead(pin));
 
-        if (isnan(lightLevel)) {
-            return {lastLightLevel, true};
+        if (isnan(lightLevel) || lightLevel >= SENSOR_LIGHT_MAX_ERROR) {
+            lastLightLevel = lightLevel;
+            return {lightLevel, true};
         } else {
             lastLightLevel = lightLevel;
             return {lightLevel, false};

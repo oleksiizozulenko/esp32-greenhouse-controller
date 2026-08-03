@@ -40,15 +40,17 @@ public:
     SensorData read() override {
         unsigned long currentTime = millis();
         if (currentTime - lastReadTime < readInterval && !isnan(lastHumidity)) {
-            return {lastHumidity, false};
+            bool isErr = isnan(lastHumidity) || (lastHumidity > SENSOR_HUMIDITY_MAX_ERROR);
+            return {lastHumidity, isErr};
         }
 
         lastReadTime = currentTime;
 
         float humidity = dht ? dht->readHumidity() : NAN;
 
-        if (isnan(humidity)) {
-            return {lastHumidity, true};
+        if (isnan(humidity) || humidity > SENSOR_HUMIDITY_MAX_ERROR) {
+            lastHumidity = humidity;
+            return {humidity, true};
         } else {
             lastHumidity = humidity;
             return {humidity, false};

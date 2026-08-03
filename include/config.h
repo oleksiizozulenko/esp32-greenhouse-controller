@@ -55,6 +55,11 @@
 #define LIGHT_DARK_THRESHOLD  500   // Поріг темряви (значення ADC / lux)
 #define LIGHT_HYSTERESIS      50    // Гістерезис для світла
 
+// Пороги помилок сенсорів (Sensor Error Thresholds)
+#define SENSOR_LIGHT_MAX_ERROR   60.0f // Максимальне значення світла (насичення / помилка)
+#define SENSOR_HUMIDITY_MAX_ERROR 80.0f  // Вологість > 90% -> Помилка системи
+#define SENSOR_TEMP_MIN_ERROR     -5.0f  // Температура < -5°C -> Помилка системи
+
 // ==========================================
 // 3. SYSTEM TIMINGS (Таймаути та інтервали)
 // ==========================================

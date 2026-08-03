@@ -40,15 +40,17 @@ public:
     SensorData read() override {
         unsigned long currentTime = millis();
         if (currentTime - lastReadTime < readInterval && !isnan(lastTemperature)) {
-            return {lastTemperature, false};
+            bool isErr = isnan(lastTemperature) || (lastTemperature < SENSOR_TEMP_MIN_ERROR);
+            return {lastTemperature, isErr};
         }
 
         lastReadTime = currentTime;
 
         float temperature = dht ? dht->readTemperature() : NAN;
 
-        if (isnan(temperature)) {
-            return {lastTemperature, true};
+        if (isnan(temperature) || temperature < SENSOR_TEMP_MIN_ERROR) {
+            lastTemperature = temperature;
+            return {temperature, true};
         } else {
             lastTemperature = temperature;
             return {temperature, false};

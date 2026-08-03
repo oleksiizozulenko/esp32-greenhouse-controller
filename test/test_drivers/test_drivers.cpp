@@ -4,6 +4,7 @@
 #include "../MockActuator.h"
 #include "../../include/drivers/TemperatureSensor.h"
 #include "../../include/drivers/HumiditySensor.h"
+#include "../../include/drivers/LightSensor.h"
 
 void setUp(void) {
     resetMockArduinoState();
@@ -48,6 +49,23 @@ void test_dht_temperature_sensor(void) {
     TEST_ASSERT_EQUAL_STRING("C", tempSensor.getUnit());
 }
 
+void test_dht_temperature_sensor_error_below_min(void) {
+    DHT dht(19, DHT22);
+    dht.setTemperature(-6.0f); // Below -5.0°C threshold -> Error
+    TemperatureSensor tempSensor(19, &dht);
+    tempSensor.init();
+
+    SensorData data = tempSensor.read();
+    TEST_ASSERT_TRUE(data.isError);
+
+    // -5.0°C should be valid (not < -5.0)
+    dht.setTemperature(-5.0f);
+    // Reset interval timer to force re-read
+    delay(2001);
+    data = tempSensor.read();
+    TEST_ASSERT_FALSE(data.isError);
+}
+
 void test_dht_humidity_sensor(void) {
     DHT dht(19, DHT22);
     dht.setHumidity(62.0f);
@@ -60,6 +78,38 @@ void test_dht_humidity_sensor(void) {
     TEST_ASSERT_EQUAL_STRING("%", humSensor.getUnit());
 }
 
+void test_dht_humidity_sensor_error_above_max(void) {
+    DHT dht(19, DHT22);
+    dht.setHumidity(91.5f); // > 90% threshold -> Error
+    HumiditySensor humSensor(19, &dht);
+    humSensor.init();
+
+    SensorData data = humSensor.read();
+    TEST_ASSERT_TRUE(data.isError);
+
+    // 90.0% should be valid (not > 90)
+    dht.setHumidity(90.0f);
+    delay(2001);
+    data = humSensor.read();
+    TEST_ASSERT_FALSE(data.isError);
+}
+
+void test_light_sensor_error_at_max_value(void) {
+    LightSensor lightSensor(35);
+    lightSensor.init();
+
+    // 4095 ADC -> 100.0% (Max saturation value) -> Error
+    setMockAnalogRead(35, 4095);
+    SensorData data = lightSensor.read();
+    TEST_ASSERT_TRUE(data.isError);
+
+    // 2047 ADC -> ~50% -> Normal operation
+    setMockAnalogRead(35, 2047);
+    delay(2001);
+    data = lightSensor.read();
+    TEST_ASSERT_FALSE(data.isError);
+}
+
 int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
@@ -68,7 +118,10 @@ int main(int argc, char **argv) {
     RUN_TEST(test_adc_conversions);
     RUN_TEST(test_actuator_status_text);
     RUN_TEST(test_dht_temperature_sensor);
+    RUN_TEST(test_dht_temperature_sensor_error_below_min);
     RUN_TEST(test_dht_humidity_sensor);
+    RUN_TEST(test_dht_humidity_sensor_error_above_max);
+    RUN_TEST(test_light_sensor_error_at_max_value);
 
     return UNITY_END();
 }
