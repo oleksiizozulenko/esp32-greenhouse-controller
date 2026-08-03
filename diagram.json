@@ -54,13 +54,7 @@
       "left": -259.2,
       "attrs": { "color": "yellow", "xray": "1", "label": "Mode" }
     },
-    {
-      "type": "wokwi-servo",
-      "id": "servo1",
-      "top": 934.81,
-      "left": 106.03,
-      "attrs": {}
-    },
+    { "type": "wokwi-servo", "id": "servo1", "top": 934.81, "left": 106.03, "attrs": {} },
     {
       "type": "wokwi-led-strip",
       "id": "strip1",
@@ -103,7 +97,8 @@
       "top": 159.6,
       "left": 551,
       "attrs": { "color": "green" }
-    }
+    },
+    { "type": "wokwi-vcc", "id": "vcc1", "top": 154.36, "left": -316.8, "attrs": {} }
   ],
   "connections": [
     [ "esp:TX", "$serialMonitor:RX", "", [] ],
@@ -141,10 +136,11 @@
     [ "ring1:VCC", "esp:5V", "red", [ "v48", "h-144", "v-700.8" ] ],
     [ "ring1:DIN", "esp:16", "green", [ "v19.2", "h508.8", "v-528", "h-412.8", "v-201.6" ] ],
     [ "servo1:PWM", "esp:5", "green", [ "v38.4", "h364.8", "v-700.8", "h-288", "v-336" ] ],
-    [ "servo1:V+", "esp:5V", "red", [ "v0" ] ],
+    [ "servo1:V+", "esp:5V", "red", [ "h-173.23", "v-792.71" ] ],
     [ "servo1:GND", "esp:GND.1", "black", [ "v28.8", "h-259.2", "v-988.8" ] ],
     [ "led1:A", "esp:4", "green", [ "v76.8", "h-403.2", "v-134.4" ] ],
-    [ "led2:A", "esp:15", "green", [ "v105.6", "h-470.4", "v-134.4", "h-9.6" ] ]
+    [ "led2:A", "esp:15", "green", [ "v105.6", "h-470.4", "v-134.4", "h-9.6" ] ],
+    [ "esp:5V", "vcc1:VCC", "red", [ "h-278.25", "h-28.8" ] ]
   ],
   "dependencies": {}
 }
