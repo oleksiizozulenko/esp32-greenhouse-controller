@@ -18,6 +18,8 @@ public:
     virtual void turnOff() = 0;
     virtual bool isOn() = 0;
 
+    virtual const char* getStatusText() { return isOn() ? "ON" : "OFF"; }
+
     int getPin() const { return pin; }
     const char* getName() const { return name; }
 };

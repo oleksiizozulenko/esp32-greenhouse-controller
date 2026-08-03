@@ -32,6 +32,7 @@ public:
     virtual ~Sensor() {}
     virtual void init() = 0;
     virtual SensorData read() = 0;
+    virtual const char* getUnit() const = 0;
 
     int getPin() const { return pin; }
     const char* getName() const { return name; }

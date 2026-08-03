@@ -36,6 +36,10 @@ public:
         return active;
     }
 
+    const char* getStatusText() override {
+        return active ? "OPEN" : "CLOSE";
+    }
+
     void open() {
         turnOn();
     }

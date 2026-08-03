@@ -33,6 +33,10 @@ public:
             return {humidity, false};
         }
     }
+
+    const char* getUnit() const override {
+        return "%";
+    }
 };
 
 #endif // HUMIDITY_SENSOR_H

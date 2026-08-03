@@ -33,6 +33,10 @@ public:
             return {temperature, false};
         }
     }
+
+    const char* getUnit() const override {
+        return "C";
+    }
 };
 
 #endif // TEMPERATURE_SENSOR_H

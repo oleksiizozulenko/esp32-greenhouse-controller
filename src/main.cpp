@@ -10,7 +10,7 @@
 #include "drivers/LightActuator.h"
 #include "drivers/ButtonDriver.h"
 #include "services/SensorsService.h"
-#include "services/ActuatorsService.h"
+#include "services/AutomationService.h"
 #include "services/DisplayManager.h"
 
 // Sensor Drivers
@@ -33,7 +33,7 @@ ButtonDriver btnLight(PIN_BTN_LIGHT);
 // Services & Managers
 DisplayManager displayManager;
 SensorsService sensorsService;
-ActuatorsService actuatorsService(&ventActuator, &irrigActuator, &lightActuator);
+AutomationService automationService;
 
 enum SystemMode {
   MODE_MANUAL,
@@ -61,8 +61,11 @@ void setup() {
   sensorsService.addSensor(&lightSensor);
   sensorsService.begin();
 
-  // Initialize Actuators
-  actuatorsService.begin();
+  // Register and Initialize Actuators
+  automationService.addActuator(&ventActuator);
+  automationService.addActuator(&irrigActuator);
+  automationService.addActuator(&lightActuator);
+  automationService.begin();
 
   // Initialize Buttons
   btnMode.init();
@@ -114,11 +117,11 @@ void loop() {
     handleManualMode();
   }
 
-  // 4. Update ActuatorsService (executes automation logic in AUTO, button toggles in MANUAL)
-  actuatorsService.update(mode == MODE_AUTOMATIC, readings, &btnIrrig, &btnVent, &btnLight);
+  // 4. Update AutomationService (executes automation logic in AUTO, button toggles in MANUAL)
+  automationService.update(mode == MODE_AUTOMATIC, readings, &btnIrrig, &btnVent, &btnLight);
 
   // 5. Update OLED Display
-  displayManager.render(mode == MODE_AUTOMATIC, readings, actuatorsService);
+  displayManager.render(mode == MODE_AUTOMATIC, readings, automationService);
 
   delay(10); // Simulation pacing
 }

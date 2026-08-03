@@ -33,6 +33,10 @@ public:
             return {soilMoisture, false};
         }
     }
+
+    const char* getUnit() const override {
+        return "%";
+    }
 };
 
 #endif // SOIL_SENSOR_H

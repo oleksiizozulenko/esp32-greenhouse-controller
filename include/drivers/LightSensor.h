@@ -33,6 +33,10 @@ public:
             return {lightLevel, false};
         }
     }
+
+    const char* getUnit() const override {
+        return "";
+    }
 };
 
 #endif // LIGHT_SENSOR_H
