@@ -18,7 +18,7 @@ public:
         : Actuator(pin, "Ventilation"), active(false), openAngle(openAngle), closeAngle(closeAngle) {}
 
     void init() override {
-        servo.attach(pin);
+        servo.attach(pin, 500, 2400);
         turnOff();
     }
 
