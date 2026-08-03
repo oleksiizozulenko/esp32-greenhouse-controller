@@ -1,19 +1,19 @@
-#ifndef IRRIGATION_ACTUATOR_H
-#define IRRIGATION_ACTUATOR_H
+#ifndef LIGHT_ACTUATOR_H
+#define LIGHT_ACTUATOR_H
 
 #include <Arduino.h>
 #include <Adafruit_NeoPixel.h>
 #include "../config.h"
 #include "Actuator.h"
 
-class IrrigationActuator : public Actuator {
+class LightActuator : public Actuator {
 private:
     Adafruit_NeoPixel pixels;
     bool active;
 
 public:
-    IrrigationActuator(int pin = PIN_LED_RING, int numPixels = NUM_PIXELS_RING)
-        : Actuator(pin, "Irrigation"),
+    LightActuator(int pin = PIN_LED_STRIP, int numPixels = NUM_PIXELS_STRIP)
+        : Actuator(pin, "Light"),
           pixels(numPixels, pin, NEO_GRB + NEO_KHZ800),
           active(false) {}
 
@@ -25,9 +25,9 @@ public:
     }
 
     void turnOn() override {
-        // Blue/Cyan water color for LED_RING
+        // Warm white/yellow grow light color for LED_STRIP
         for (uint16_t i = 0; i < pixels.numPixels(); i++) {
-            pixels.setPixelColor(i, pixels.Color(0, 150, 255));
+            pixels.setPixelColor(i, pixels.Color(255, 255, 200));
         }
         pixels.show();
         active = true;
@@ -44,4 +44,4 @@ public:
     }
 };
 
-#endif // IRRIGATION_ACTUATOR_H
+#endif // LIGHT_ACTUATOR_H

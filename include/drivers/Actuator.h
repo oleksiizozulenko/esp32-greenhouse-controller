@@ -1,13 +1,25 @@
+#ifndef ACTUATOR_H
+#define ACTUATOR_H
+
+#include <Arduino.h>
+
 class Actuator {
-    protected:
-        Actuator(int pin) : pin(pin) {}
+protected:
+    int pin;
+    const char* name;
 
-    private:
-        int pin;
+    Actuator(int pin, const char* name = "Actuator") : pin(pin), name(name) {}
 
-    public:
-        virtual ~Actuator() {}
-        virtual void turnOn() = 0;
-        virtual void turnOff() = 0;
-        virtual bool isOn() = 0;
+public:
+    virtual ~Actuator() {}
+
+    virtual void init() = 0;
+    virtual void turnOn() = 0;
+    virtual void turnOff() = 0;
+    virtual bool isOn() = 0;
+
+    int getPin() const { return pin; }
+    const char* getName() const { return name; }
 };
+
+#endif // ACTUATOR_H

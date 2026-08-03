@@ -21,14 +21,23 @@
 #define PIN_BTN_LIGHT     26
 
 // Actuators & Indicators
-#define PIN_OLED_SDA      21
-#define PIN_OLED_SCL      22
-#define PIN_BUZZER        18
-#define PIN_LED_STRIP     17
-#define PIN_LED_RING      16
-#define PIN_LED_RED       4
-#define PIN_LED_GREEN     15
-#define PIN_ACTUATOR_VENT 5
+#define PIN_OLED_SDA        21
+#define PIN_OLED_SCL        22
+#define PIN_BUZZER          18
+#define PIN_LED_STRIP       17  // Light actuator (LED Strip)
+#define PIN_LED_RING        16  // Irrigation actuator (LED Ring)
+#define PIN_LED_RED         4   // Error in system LED
+#define PIN_LED_GREEN       15  // All systems working LED
+#define PIN_ACTUATOR_VENT   5   // Ventilation actuator (Servo)
+
+#define PIN_ACTUATOR_IRRIG  PIN_LED_RING
+#define PIN_ACTUATOR_LIGHT  PIN_LED_STRIP
+
+#define NUM_PIXELS_RING     16  // Number of NeoPixels on irrigation ring
+#define NUM_PIXELS_STRIP    20  // Number of NeoPixels on light strip
+
+#define SERVO_OPEN_ANGLE    90  // Ventilation servo open angle
+#define SERVO_CLOSE_ANGLE   0   // Ventilation servo close angle
 
 // ==========================================
 // 2. THRESHOLDS & HYSTERESIS (Пороги та Гістерезис)
