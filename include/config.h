@@ -10,6 +10,7 @@
 // Sensors
 #define PIN_DHT           19
 #define DHT_TYPE          DHT22
+#define PIN_TEMP          19
 #define PIN_LDR           35
 #define PIN_SOIL_POT      34
 
@@ -53,4 +54,12 @@
 #define OLED_REFRESH_INTERVAL 500   // Інтервал оновлення екрану (мс)
 #define DEBOUNCE_DELAY        50    // Антидребізг кнопок (мс)
 
-#endif // CONFIG_Hs
+// ==========================================
+// 4. ADC & CONVERSION CONSTANTS
+// ==========================================
+
+#define ADC_MAX_VALUE         4095.0f // 12-bit ADC resolution (2^12 - 1)
+#define ADC_REF_VOLTAGE       3.3f    // Reference voltage (V)
+#define PERCENTAGE_FACTOR     100.0f  // Percentage scale multiplier
+
+#endif // CONFIG_H

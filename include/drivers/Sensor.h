@@ -1,21 +1,42 @@
 
+#ifndef SENSOR_H
+#define SENSOR_H
+
+#include <Arduino.h>
+#include "../config.h"
+
 struct SensorData {
     float value;
     bool isError;
 };
 
 class Sensor {
-    protected:
-        Sensor(int pin) : pin(pin),  lastReadTime(0) {}
-
+protected:
     int pin;
-        float lastLightLevel;
-        unsigned long lastReadTime;
-        const unsigned long readInterval = 2000; // Read every 2 seconds
+    const char* name;
+    unsigned long lastReadTime;
+    const unsigned long readInterval;
 
+    static inline float adcToVoltage(int rawAdc) {
+        return (static_cast<float>(rawAdc) / ADC_MAX_VALUE) * ADC_REF_VOLTAGE;
+    }
 
-    public:
-        virtual ~Sensor() {}
-        virtual void init() = 0;
-        virtual SensorData read() = 0;
+    static inline float adcToPercentage(int rawAdc) {
+        return (static_cast<float>(rawAdc) / ADC_MAX_VALUE) * PERCENTAGE_FACTOR;
+    }
+
+public:
+    Sensor(int pin, const char* name = "Sensor", unsigned long readInterval = SENSOR_READ_INTERVAL)
+        : pin(pin), name(name), lastReadTime(0), readInterval(readInterval) {}
+
+    virtual ~Sensor() {}
+    virtual void init() = 0;
+    virtual SensorData read() = 0;
+
+    int getPin() const { return pin; }
+    const char* getName() const { return name; }
 };
+
+typedef Sensor ISensor;
+
+#endif // SENSOR_H

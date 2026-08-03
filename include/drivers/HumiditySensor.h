@@ -1,29 +1,38 @@
+#ifndef HUMIDITY_SENSOR_H
+#define HUMIDITY_SENSOR_H
+
+#include <Arduino.h>
+#include "Sensor.h"
+
 class HumiditySensor : public Sensor {
+private:
+    float lastHumidity;
 
+public:
+    HumiditySensor(int pin) 
+        : Sensor(pin, "Humidity"), lastHumidity(NAN) {}
 
-    public:
-        HumiditySensor(int pin) : pin(pin), lastHumidity(NAN), lastReadTime(0) {}
+    void init() override {
+        pinMode(pin, INPUT);
+    }
 
-        void init() {
-            pinMode(pin, INPUT);
+    SensorData read() override {
+        unsigned long currentTime = millis();
+        if (currentTime - lastReadTime < readInterval && !isnan(lastHumidity)) {
+            return {lastHumidity, false};
         }
 
-        SensorData read() {
-            unsigned long currentTime = millis();
-            if (currentTime - lastReadTime < readInterval) {
-                return {lastHumidity, false}; // Return last value if not enough time has passed
-            }
+        lastReadTime = currentTime;
 
-            lastReadTime = currentTime;
+        float humidity = adcToPercentage(analogRead(pin));
 
-            // Simulate reading from a humidity sensor (replace with actual sensor reading code)
-            float humidity = analogRead(pin) * (3.3 / 4095.0) * 100; // Example conversion
-
-            if (isnan(humidity)) {
-                return {lastHumidity, true}; // Error reading
-            } else {
-                lastHumidity = humidity;
-                return {humidity, false}; // Successful read
-            }
+        if (isnan(humidity)) {
+            return {lastHumidity, true};
+        } else {
+            lastHumidity = humidity;
+            return {humidity, false};
         }
+    }
 };
+
+#endif // HUMIDITY_SENSOR_H

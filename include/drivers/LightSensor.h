@@ -1,30 +1,38 @@
+#ifndef LIGHT_SENSOR_H
+#define LIGHT_SENSOR_H
+
+#include <Arduino.h>
+#include "Sensor.h"
+
 class LightSensor : public Sensor {
-    private:
-        float lastLightLevel;
+private:
+    float lastLightLevel;
 
-    public:
-        LightSensor(int pin) : pin(pin), lastLightLevel(NAN), lastReadTime(0) {}
+public:
+    LightSensor(int pin) 
+        : Sensor(pin, "Light"), lastLightLevel(NAN) {}
 
-        void init() {
-            pinMode(pin, INPUT);
+    void init() override {
+        pinMode(pin, INPUT);
+    }
+
+    SensorData read() override {
+        unsigned long currentTime = millis();
+        if (currentTime - lastReadTime < readInterval && !isnan(lastLightLevel)) {
+            return {lastLightLevel, false};
         }
 
-        SensorData read() {
-            unsigned long currentTime = millis();
-            if (currentTime - lastReadTime < readInterval) {
-                return {lastLightLevel, false}; // Return last value if not enough time has passed
-            }
+        lastReadTime = currentTime;
 
-            lastReadTime = currentTime;
+        float lightLevel = adcToPercentage(analogRead(pin));
 
-            // Simulate reading from a light sensor (replace with actual sensor reading code)
-            float lightLevel = analogRead(pin) * (3.3 / 4095.0) * 100; // Example conversion
-
-            if (isnan(lightLevel)) {
-                return {lastLightLevel, true}; // Error reading
-            } else {
-                lastLightLevel = lightLevel;
-                return {lightLevel, false}; // Successful read
-            }
+        if (isnan(lightLevel)) {
+            return {lastLightLevel, true};
+        } else {
+            lastLightLevel = lightLevel;
+            return {lightLevel, false};
         }
+    }
 };
+
+#endif // LIGHT_SENSOR_H

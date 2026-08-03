@@ -5,6 +5,8 @@
 #include "drivers/SoilSensor.h"
 #include "drivers/TemperatureSensor.h"
 #include "drivers/LightSensor.h"
+#include "services/SensorsService.h"
+#include "services/DisplayManager.h"
 
 HumiditySensor humiditySensor(PIN_DHT);
 SoilSensor soilSensor(PIN_SOIL_POT);
@@ -12,10 +14,10 @@ TemperatureSensor temperatureSensor(PIN_TEMP);
 LightSensor lightSensor(PIN_LDR);
 
 DisplayManager displayManager;
-SensorsService sensorsService({&temperatureSensor, &humiditySensor, &soilSensor, &lightSensor});
+SensorsService sensorsService;
 
 void setup() {
-  // put your setup code here, to run once:
+
   Serial.begin(115200);
   Serial.println("Hello, ESP32!");
 
@@ -30,14 +32,7 @@ void setup() {
   sensorsService.addSensor(&lightSensor);
 
   sensorsService.begin();
-
-  actuatorsService.addActuator(&ventilationActuator);
-  actuatorsService.addActuator(&irrigationActuator);
-  actuatorsService.addActuator(&lightActuator);
-
-  actuatorsService.begin();
-
-    displayManager.init();
+  displayManager.init();
 }
 
 enum SystemMode {
@@ -54,35 +49,23 @@ SystemMode readModeButton() {
 }
 
 void handleManualMode() {
-  // Implement manual mode logic here
   Serial.println("Manual Mode Active");
-
-  if(btnIrrigationPressed()) {
-    actuatorsService.toggleIrrigation();
-   // displayManager.render();  // dispaly the current state of the irrigation actuator
-  }
-  if(btnLightPressed()) {
-    actuatorsService.toggleLight();
-  }
-    if(btnVentilationPressed()) {
-        actuatorsService.toggleVentilation();
-    }
 }
 
 void handleAutomaticMode() {
-  // Implement automatic mode logic here
   Serial.println("Automatic Mode Active");
 
-   SensorsData* sensorsValue[] = sensorsService.read();
+  SensorDataMap readings = sensorsService.read();
 
-  for (auto sensorData : sensorsValue) {
-    if (sensorData->isError) {
-      Serial.println("Error reading from sensor");
+  for (size_t i = 0; i < readings.size(); ++i) {
+    Sensor* sensor = readings[i].sensor;
+    SensorData data = readings[i].data;
+    if (data.isError) {
+      Serial.printf("Error reading sensor: %s\n", sensor ? sensor->getName() : "Unknown");
     } else {
-        Serial.printf("Sensor value: %.2f\n", sensorData->value);
+      Serial.printf("Sensor %s value: %.2f\n", sensor ? sensor->getName() : "Unknown", data.value);
     }
   }
-
 }
 
 
