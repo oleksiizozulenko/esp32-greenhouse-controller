@@ -87,9 +87,9 @@ void test_dht_humidity_sensor_error_above_max(void) {
     SensorData data = humSensor.read();
     TEST_ASSERT_TRUE(data.isError);
 
-    // 90.0% should be valid (not > 90)
+    // 90.0% should be valid (<= 90% threshold)
     dht.setHumidity(90.0f);
-    delay(2001);
+    delay(2500);
     data = humSensor.read();
     TEST_ASSERT_FALSE(data.isError);
 }

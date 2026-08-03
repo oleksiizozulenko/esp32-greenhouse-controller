@@ -120,7 +120,8 @@ void test_auto_ventilation_hysteresis_holds_closed(void) {
 }
 
 void test_auto_ventilation_sensor_error_isolation(void) {
-    ventActuator->turnOff();
+    // Actuator is initially ON
+    ventActuator->turnOn();
 
     // Sensor reports error
     tempSensor->setData(35.0f, true);
@@ -128,7 +129,7 @@ void test_auto_ventilation_sensor_error_isolation(void) {
     readings[0] = {tempSensor, tempSensor->read()};
     automation->update(true, readings);
 
-    TEST_ASSERT_FALSE(ventActuator->isOn()); // Stays OFF despite high value because isError=true
+    TEST_ASSERT_FALSE(ventActuator->isOn()); // Turns OFF due to isError=true
 }
 
 // ----------------------------------------------------
@@ -173,7 +174,8 @@ void test_auto_irrigation_sufficient_moisture_turns_off(void) {
 }
 
 void test_auto_irrigation_sensor_error_isolation(void) {
-    irrigActuator->turnOff();
+    // Actuator is initially ON
+    irrigActuator->turnOn();
 
     // Sensor error
     soilSensor->setData(10.0f, true);
@@ -182,7 +184,7 @@ void test_auto_irrigation_sensor_error_isolation(void) {
 
     automation->update(true, readings);
 
-    TEST_ASSERT_FALSE(irrigActuator->isOn());
+    TEST_ASSERT_FALSE(irrigActuator->isOn()); // Turns OFF due to isError=true
 }
 
 // ----------------------------------------------------
@@ -226,7 +228,8 @@ void test_auto_light_daylight_turns_off(void) {
 }
 
 void test_auto_light_sensor_error_isolation(void) {
-    lightActuator->turnOff();
+    // Actuator is initially ON
+    lightActuator->turnOn();
 
     lightSensor->setData(100.0f, true);
     SensorDataMap readings(1);
@@ -234,7 +237,7 @@ void test_auto_light_sensor_error_isolation(void) {
 
     automation->update(true, readings);
 
-    TEST_ASSERT_FALSE(lightActuator->isOn());
+    TEST_ASSERT_FALSE(lightActuator->isOn()); // Turns OFF due to isError=true
 }
 
 // ----------------------------------------------------

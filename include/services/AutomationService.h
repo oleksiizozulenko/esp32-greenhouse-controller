@@ -139,8 +139,13 @@ public:
         // 1. Temperature vs Servo Ventilation Control
         SensorData tempData = readings.get("Temperature");
         Actuator* vent = getActuator("Ventilation");
-        if (!tempData.isError && vent != nullptr) {
-            if (tempData.value > TEMP_THRESHOLD_HIGH) {
+        if (vent != nullptr) {
+            if (tempData.isError) {
+                if (vent->isOn()) {
+                    Serial.printf("[AUTO] Temp Sensor Error -> Turning OFF Ventilation (%s)\n", vent->getName());
+                    vent->turnOff();
+                }
+            } else if (tempData.value > TEMP_THRESHOLD_HIGH) {
                 highAlertActive = true;
                 if (!vent->isOn()) {
                     Serial.printf("[AUTO] High Temp (%.2f°C > %.2f°C) -> Opening Ventilation (%s)\n",
@@ -157,8 +162,13 @@ public:
         // 2. Soil Moisture vs LED_RING Irrigation Control
         SensorData soilData = readings.get("Soil");
         Actuator* irrig = getActuator("Irrigation");
-        if (!soilData.isError && irrig != nullptr) {
-            if (soilData.value < SOIL_DRY_THRESHOLD) {
+        if (irrig != nullptr) {
+            if (soilData.isError) {
+                if (irrig->isOn()) {
+                    Serial.printf("[AUTO] Soil Sensor Error -> Turning OFF Irrigation (%s)\n", irrig->getName());
+                    irrig->turnOff();
+                }
+            } else if (soilData.value < SOIL_DRY_THRESHOLD) {
                 highAlertActive = true;
                 if (!irrig->isOn()) {
                     Serial.printf("[AUTO] Low Soil Moisture (%.2f%% < %d%%) -> Turning ON Irrigation (%s)\n",
@@ -175,8 +185,13 @@ public:
         // 3. Light Sensor vs LED_STRIP Light Control
         SensorData lightData = readings.get("Light");
         Actuator* light = getActuator("Light");
-        if (!lightData.isError && light != nullptr) {
-            if (lightData.value < LIGHT_DARK_THRESHOLD && !light->isOn()) {
+        if (light != nullptr) {
+            if (lightData.isError) {
+                if (light->isOn()) {
+                    Serial.printf("[AUTO] Light Sensor Error -> Turning OFF Light (%s)\n", light->getName());
+                    light->turnOff();
+                }
+            } else if (lightData.value < LIGHT_DARK_THRESHOLD && !light->isOn()) {
                 Serial.printf("[AUTO] Low Light (%.2f < %d) -> Turning ON Light (%s)\n",
                               lightData.value, LIGHT_DARK_THRESHOLD, light->getName());
                 light->turnOn();
