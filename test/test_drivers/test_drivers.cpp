@@ -94,20 +94,38 @@ void test_dht_humidity_sensor_error_above_max(void) {
     TEST_ASSERT_FALSE(data.isError);
 }
 
-void test_light_sensor_error_at_max_value(void) {
+void test_light_sensor_adc_to_lux_conversion(void) {
     LightSensor lightSensor(35);
     lightSensor.init();
 
-    // 4095 ADC -> 100.0% (Max saturation value) -> Error
-    setMockAnalogRead(35, 4095);
-    SensorData data = lightSensor.read();
-    TEST_ASSERT_TRUE(data.isError);
+    TEST_ASSERT_EQUAL_STRING("lx", lightSensor.getUnit());
 
-    // 2047 ADC -> ~50% -> Normal operation
-    setMockAnalogRead(35, 2047);
-    delay(2001);
-    data = lightSensor.read();
-    TEST_ASSERT_FALSE(data.isError);
+    // 0 ADC -> 0.0 lx
+    setMockAnalogRead(35, 0);
+    SensorData d0 = lightSensor.read();
+    TEST_ASSERT_FALSE(d0.isError);
+    TEST_ASSERT_FLOAT_WITHIN(1.0f, 0.0f, d0.value);
+
+    // 2050 ADC -> ~100 lx
+    setMockAnalogRead(35, 2050);
+    advanceSimulatedMillis(2001);
+    SensorData d100 = lightSensor.read();
+    TEST_ASSERT_FALSE(d100.isError);
+    TEST_ASSERT_FLOAT_WITHIN(15.0f, 100.0f, d100.value);
+
+    // 2971 ADC -> ~400 lx
+    setMockAnalogRead(35, 2971);
+    advanceSimulatedMillis(2001);
+    SensorData d400 = lightSensor.read();
+    TEST_ASSERT_FALSE(d400.isError);
+    TEST_ASSERT_FLOAT_WITHIN(30.0f, 400.0f, d400.value);
+
+    // 3938 ADC -> ~10000 lx
+    setMockAnalogRead(35, 3938);
+    advanceSimulatedMillis(2001);
+    SensorData d10000 = lightSensor.read();
+    TEST_ASSERT_FALSE(d10000.isError);
+    TEST_ASSERT_FLOAT_WITHIN(800.0f, 10000.0f, d10000.value);
 }
 
 int main(int argc, char **argv) {
@@ -121,7 +139,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_dht_temperature_sensor_error_below_min);
     RUN_TEST(test_dht_humidity_sensor);
     RUN_TEST(test_dht_humidity_sensor_error_above_max);
-    RUN_TEST(test_light_sensor_error_at_max_value);
+    RUN_TEST(test_light_sensor_adc_to_lux_conversion);
 
     return UNITY_END();
 }
