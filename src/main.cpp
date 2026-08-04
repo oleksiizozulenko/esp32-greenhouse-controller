@@ -10,8 +10,9 @@
 #include "drivers/LightActuator.h"
 #include "drivers/ButtonDriver.h"
 #include "services/SensorsService.h"
-#include "services/AutomationService.h"
+#include "services/SafetyMonitorService.h"
 #include "services/DisplayManager.h"
+#include "GreenhouseController.h"
 
 // Sensor Drivers
 DHT dht(PIN_DHT, DHT_TYPE);
@@ -34,7 +35,8 @@ ButtonDriver btnLight(PIN_BTN_LIGHT);
 // Services & Managers
 DisplayManager displayManager;
 SensorsService sensorsService;
-AutomationService automationService;
+SafetyMonitorService safetyMonitorService;
+GreenhouseController greenhouseController;
 
 enum SystemMode {
   MODE_MANUAL,
@@ -63,10 +65,10 @@ void setup() {
   sensorsService.begin();
 
   // Register and Initialize Actuators
-  automationService.addActuator(&ventActuator);
-  automationService.addActuator(&irrigActuator);
-  automationService.addActuator(&lightActuator);
-  automationService.begin();
+  greenhouseController.addActuator(&ventActuator);
+  greenhouseController.addActuator(&irrigActuator);
+  greenhouseController.addActuator(&lightActuator);
+  greenhouseController.begin();
 
   // Initialize Buttons
   btnMode.init();
@@ -110,19 +112,23 @@ void loop() {
 
   // 2. Read mode button state
   SystemMode mode = readModeButton();
+  bool isAutoMode = (mode == MODE_AUTOMATIC);
 
-  // 3. Process mode logging
-  if (mode == MODE_AUTOMATIC) {
+  // 3. Safety Evaluation
+  SystemHealthState healthState = safetyMonitorService.evaluate(readings, isAutoMode);
+
+  // 4. Process mode logging
+  if (isAutoMode) {
     handleAutomaticMode(readings);
   } else {
     handleManualMode();
   }
 
-  // 4. Update AutomationService (executes automation logic in AUTO, button toggles in MANUAL)
-  automationService.update(mode == MODE_AUTOMATIC, readings, &btnIrrig, &btnVent, &btnLight);
+  // 5. Update GreenhouseController (executes automation logic in AUTO, button toggles in MANUAL)
+  greenhouseController.update(isAutoMode, readings, healthState, &btnIrrig, &btnVent, &btnLight);
 
-  // 5. Update OLED Display
-  displayManager.render(mode == MODE_AUTOMATIC, readings, automationService);
+  // 6. Update OLED Display
+  displayManager.render(greenhouseController.buildDisplayViewModel(isAutoMode, readings, healthState));
 
   delay(10); // Simulation pacing
 }

@@ -2,10 +2,10 @@
 #include "../Arduino.h"
 #include "../MockActuator.h"
 #include "../MockSensor.h"
-#include "../../include/services/AutomationService.h"
+#include "../../include/GreenhouseController.h"
 #include "../../include/services/SensorsService.h"
 
-static AutomationService* automation;
+static GreenhouseController* automation;
 static MockActuator* ventActuator;
 static MockActuator* irrigActuator;
 static MockActuator* lightActuator;
@@ -17,7 +17,7 @@ static MockSensor* lightSensor;
 void setUp(void) {
     resetMockArduinoState();
     
-    automation = new AutomationService(4, PIN_LED_RED, PIN_LED_GREEN, PIN_BUZZER);
+    automation = new GreenhouseController(4, PIN_LED_RED, PIN_LED_GREEN, PIN_BUZZER);
     
     ventActuator = new MockActuator(PIN_ACTUATOR_VENT, "Ventilation");
     irrigActuator = new MockActuator(PIN_ACTUATOR_IRRIG, "Irrigation");
@@ -328,9 +328,12 @@ void test_manual_mode_critical_light_alert(void) {
     SensorDataMap readings(1);
     readings[0] = {lightSensor, lightSensor->read()};
 
-    automation->update(false, readings);
+    SafetyMonitorService monitor;
+    SystemHealthState state = monitor.evaluate(readings, false);
 
-    TEST_ASSERT_EQUAL_UINT(1000, getMockBuzzerTone(PIN_BUZZER));
+    TEST_ASSERT_TRUE(state.hasOperatorAdvisory);
+    TEST_ASSERT_FALSE(state.requiresAlarm); // High light is operator advisory (no loud buzzer)
+    TEST_ASSERT_EQUAL_STRING("LIGHT HIGH! Press LIGHT", state.advisoryMsg);
 }
 
 void test_manual_mode_critical_humidity_alert(void) {
@@ -391,7 +394,7 @@ void test_system_indicators_sensor_error_led(void) {
 }
 
 void test_system_indicators_high_alert_buzzer_alarm(void) {
-    tempSensor->setData(30.0f, false); // Triggers high temp alert
+    tempSensor->setData(46.0f, false); // Triggers critical overheat alarm (>45.0°C)
 
     SensorDataMap readings(1);
     readings[0] = {tempSensor, tempSensor->read()};
@@ -399,6 +402,113 @@ void test_system_indicators_high_alert_buzzer_alarm(void) {
     automation->update(true, readings);
 
     TEST_ASSERT_EQUAL_UINT(1000, getMockBuzzerTone(PIN_BUZZER));
+}
+
+// ----------------------------------------------------
+// 7. SafetyMonitorService Tests
+// ----------------------------------------------------
+
+void test_safety_nan_and_inf_per_sensor(void) {
+    SafetyMonitorService monitor;
+    
+    // NaN in temperature -> Hardware error
+    tempSensor->setData(NAN, false);
+    SensorDataMap readings(1);
+    readings[0] = {tempSensor, tempSensor->read()};
+
+    SystemHealthState state = monitor.evaluate(readings, true);
+    TEST_ASSERT_TRUE(state.hasHardwareError);
+    TEST_ASSERT_TRUE(state.requiresAlarm);
+    TEST_ASSERT_EQUAL_STRING("SENSOR ERROR!", state.advisoryMsg);
+}
+
+void test_safety_missing_sensor_in_map(void) {
+    SafetyMonitorService monitor;
+    
+    // Map contains only Temperature (safe value) -> No hardware error from missing sensors
+    tempSensor->setData(25.0f, false);
+    SensorDataMap readings(1);
+    readings[0] = {tempSensor, tempSensor->read()};
+
+    SystemHealthState state = monitor.evaluate(readings, true);
+    TEST_ASSERT_FALSE(state.hasHardwareError);
+    TEST_ASSERT_FALSE(state.hasCriticalHazard);
+    TEST_ASSERT_EQUAL_STRING("", state.advisoryMsg);
+}
+
+void test_safety_exact_boundary_inclusivity(void) {
+    SafetyMonitorService monitor;
+
+    // 0.0 lx is valid inclusive bound -> No error
+    MockSensor lightS(PIN_LDR, "Light", "lx");
+    lightS.setData(0.0f, false);
+    SensorDataMap readings(1);
+    readings[0] = {&lightS, lightS.read()};
+
+    SystemHealthState state = monitor.evaluate(readings, true);
+    TEST_ASSERT_FALSE(state.hasHardwareError);
+
+    // 100000.0 lx is valid inclusive max bound -> No error
+    lightS.setData(100000.0f, false);
+    advanceSimulatedMillis(2001);
+    readings[0] = {&lightS, lightS.read()};
+    state = monitor.evaluate(readings, true);
+    TEST_ASSERT_FALSE(state.hasHardwareError);
+
+    // 100000.1 lx is out-of-bounds -> Hardware Error
+    lightS.setData(100000.1f, false);
+    advanceSimulatedMillis(2001);
+    readings[0] = {&lightS, lightS.read()};
+    state = monitor.evaluate(readings, true);
+    TEST_ASSERT_TRUE(state.hasHardwareError);
+    TEST_ASSERT_EQUAL_STRING("SENSOR ERROR!", state.advisoryMsg);
+
+    // 10000.0 lx -> Normal
+    lightS.setData(10000.0f, false);
+    advanceSimulatedMillis(2001);
+    readings[0] = {&lightS, lightS.read()};
+    state = monitor.evaluate(readings, true);
+    TEST_ASSERT_FALSE(state.hasOperatorAdvisory);
+
+    // 10000.1 lx -> High Light Advisory
+    lightS.setData(10000.1f, false);
+    advanceSimulatedMillis(2001);
+    readings[0] = {&lightS, lightS.read()};
+    state = monitor.evaluate(readings, true);
+    TEST_ASSERT_TRUE(state.hasOperatorAdvisory);
+    TEST_ASSERT_EQUAL_STRING("LIGHT HIGH! Press LIGHT", state.advisoryMsg);
+}
+
+void test_safety_conflicting_hazards_priority(void) {
+    SafetyMonitorService monitor;
+
+    // Both Overheat (46°C) and Dry Soil (20%) present -> Overheat (Priority 2) wins over Dry Soil (Priority 6)
+    tempSensor->setData(46.0f, false);
+    soilSensor->setData(20.0f, false);
+    SensorDataMap readings(2);
+    readings[0] = {tempSensor, tempSensor->read()};
+    readings[1] = {soilSensor, soilSensor->read()};
+
+    SystemHealthState state = monitor.evaluate(readings, true);
+    TEST_ASSERT_TRUE(state.hasCriticalHazard);
+    TEST_ASSERT_TRUE(state.requiresAlarm);
+    TEST_ASSERT_EQUAL_STRING("TEMP HIGH! Press VENT", state.advisoryMsg);
+}
+
+void test_safety_hardware_error_plus_hazard(void) {
+    SafetyMonitorService monitor;
+
+    // Hardware Error (NaN) on Soil AND Overheat (50°C) -> Hardware Error (Priority 1) wins
+    soilSensor->setData(NAN, false);
+    tempSensor->setData(50.0f, false);
+    SensorDataMap readings(2);
+    readings[0] = {soilSensor, soilSensor->read()};
+    readings[1] = {tempSensor, tempSensor->read()};
+
+    SystemHealthState state = monitor.evaluate(readings, true);
+    TEST_ASSERT_TRUE(state.hasHardwareError);
+    TEST_ASSERT_TRUE(state.requiresAlarm);
+    TEST_ASSERT_EQUAL_STRING("SENSOR ERROR!", state.advisoryMsg);
 }
 
 int main(int argc, char **argv) {
@@ -436,5 +546,12 @@ int main(int argc, char **argv) {
     RUN_TEST(test_system_indicators_sensor_error_led);
     RUN_TEST(test_system_indicators_high_alert_buzzer_alarm);
 
+    RUN_TEST(test_safety_nan_and_inf_per_sensor);
+    RUN_TEST(test_safety_missing_sensor_in_map);
+    RUN_TEST(test_safety_exact_boundary_inclusivity);
+    RUN_TEST(test_safety_conflicting_hazards_priority);
+    RUN_TEST(test_safety_hardware_error_plus_hazard);
+
     return UNITY_END();
 }
+

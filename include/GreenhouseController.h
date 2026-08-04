@@ -1,13 +1,15 @@
-#ifndef AUTOMATION_SERVICE_H
-#define AUTOMATION_SERVICE_H
+#ifndef GREENHOUSE_CONTROLLER_H
+#define GREENHOUSE_CONTROLLER_H
 
 #include <Arduino.h>
-#include "../config.h"
-#include "../drivers/Actuator.h"
-#include "../drivers/ButtonDriver.h"
-#include "SensorsService.h"
+#include "config.h"
+#include "drivers/Actuator.h"
+#include "drivers/ButtonDriver.h"
+#include "ui/DisplayViewModel.h"
+#include "services/SensorsService.h"
+#include "services/SafetyMonitorService.h"
 
-static inline bool streq_custom_automation(const char* s1, const char* s2) {
+static inline bool streq_custom_controller(const char* s1, const char* s2) {
     if (s1 == s2) return true;
     if (!s1 || !s2) return false;
     while (*s1 && (*s1 == *s2)) {
@@ -17,7 +19,7 @@ static inline bool streq_custom_automation(const char* s1, const char* s2) {
     return *s1 == *s2;
 }
 
-class AutomationService {
+class GreenhouseController {
 private:
     Actuator** actuators;
     size_t capacity;
@@ -28,10 +30,10 @@ private:
     int buzzerPin;
 
 public:
-    AutomationService(size_t initialCapacity = 4,
-                      int redLed = PIN_LED_RED,
-                      int greenLed = PIN_LED_GREEN,
-                      int buzzer = PIN_BUZZER)
+    GreenhouseController(size_t initialCapacity = 4,
+                         int redLed = PIN_LED_RED,
+                         int greenLed = PIN_LED_GREEN,
+                         int buzzer = PIN_BUZZER)
         : actuators(nullptr), capacity(0), actuatorCount(0),
           redLedPin(redLed), greenLedPin(greenLed), buzzerPin(buzzer) {
         if (initialCapacity > 0) {
@@ -40,15 +42,15 @@ public:
         }
     }
 
-    ~AutomationService() {
+    ~GreenhouseController() {
         if (actuators != nullptr) {
             delete[] actuators;
             actuators = nullptr;
         }
     }
 
-    AutomationService(const AutomationService&) = delete;
-    AutomationService& operator=(const AutomationService&) = delete;
+    GreenhouseController(const GreenhouseController&) = delete;
+    GreenhouseController& operator=(const GreenhouseController&) = delete;
 
     bool addActuator(Actuator* actuator) {
         if (actuator == nullptr) return false;
@@ -81,7 +83,7 @@ public:
     Actuator* getActuator(const char* name) const {
         if (name == nullptr) return nullptr;
         for (size_t i = 0; i < actuatorCount; ++i) {
-            if (actuators[i] != nullptr && streq_custom_automation(actuators[i]->getName(), name)) {
+            if (actuators[i] != nullptr && streq_custom_controller(actuators[i]->getName(), name)) {
                 return actuators[i];
             }
         }
@@ -106,17 +108,8 @@ public:
         }
     }
 
-    void updateSystemIndicators(const SensorDataMap& readings, bool highAlertActive) {
-        bool hasError = false;
-
-        for (size_t i = 0; i < readings.size(); ++i) {
-            if (readings[i].data.isError) {
-                hasError = true;
-                break;
-            }
-        }
-
-        if (hasError) {
+    void updateSystemIndicators(const SystemHealthState& healthState) {
+        if (healthState.hasHardwareError) {
             digitalWrite(redLedPin, HIGH);  // LED_RED on (system error)
             digitalWrite(greenLedPin, LOW); // LED_GREEN off
         } else {
@@ -124,8 +117,8 @@ public:
             digitalWrite(greenLedPin, HIGH); // LED_GREEN on (all systems working)
         }
 
-        // Buzzer alert for high/critical sensor readings
-        if (highAlertActive) {
+        // Buzzer alert for high/critical sensor readings or safety alarms
+        if (healthState.requiresAlarm) {
             tone(buzzerPin, 1000, 100); // 1kHz notification tone
         } else {
             noTone(buzzerPin);
@@ -133,9 +126,7 @@ public:
         }
     }
 
-    void processAutomatic(const SensorDataMap& readings, bool& highAlertActive) {
-        highAlertActive = false;
-
+    void processAutomatic(const SensorDataMap& readings) {
         // 1. Temperature vs Servo Ventilation Control
         SensorData tempData = readings.get("Temperature");
         Actuator* vent = getActuator("Ventilation");
@@ -146,7 +137,6 @@ public:
                     vent->turnOff();
                 }
             } else if (tempData.value > TEMP_THRESHOLD_HIGH) {
-                highAlertActive = true;
                 if (!vent->isOn()) {
                     Serial.printf("[AUTO] High Temp (%.2f°C > %.2f°C) -> Opening Ventilation (%s)\n",
                                   tempData.value, TEMP_THRESHOLD_HIGH, vent->getName());
@@ -169,7 +159,6 @@ public:
                     irrig->turnOff();
                 }
             } else if (soilData.value < SOIL_DRY_THRESHOLD) {
-                highAlertActive = true;
                 if (!irrig->isOn()) {
                     Serial.printf("[AUTO] Low Soil Moisture (%.2f%% < %d%%) -> Turning ON Irrigation (%s)\n",
                                   soilData.value, SOIL_DRY_THRESHOLD, irrig->getName());
@@ -192,18 +181,18 @@ public:
                     light->turnOff();
                 }
             } else if (lightData.value < LIGHT_DARK_THRESHOLD && !light->isOn()) {
-                Serial.printf("[AUTO] Low Light (%.2f < %d) -> Turning ON Light (%s)\n",
+                Serial.printf("[AUTO] Low Light (%.2f < %.2f) -> Turning ON Light (%s)\n",
                               lightData.value, LIGHT_DARK_THRESHOLD, light->getName());
                 light->turnOn();
             } else if (lightData.value > (LIGHT_DARK_THRESHOLD + LIGHT_HYSTERESIS) && light->isOn()) {
-                Serial.printf("[AUTO] Normal Light (%.2f > %d) -> Turning OFF Light (%s)\n",
+                Serial.printf("[AUTO] Normal Light (%.2f > %.2f) -> Turning OFF Light (%s)\n",
                               lightData.value, LIGHT_DARK_THRESHOLD + LIGHT_HYSTERESIS, light->getName());
                 light->turnOff();
             }
         }
     }
 
-    void processManual(const SensorDataMap& readings, bool& highAlertActive,
+    void processManual(const SensorDataMap& readings, const SystemHealthState& healthState,
                        ButtonDriver* btnIrrig = nullptr,
                        ButtonDriver* btnVent = nullptr,
                        ButtonDriver* btnLight = nullptr) {
@@ -240,51 +229,66 @@ public:
             }
         }
 
-        // Evaluate sensor readings for critical emergency thresholds in MANUAL mode
-        SensorData tempData = readings.get("Temperature");
-        if (!tempData.isError && tempData.value > CRITICAL_TEMP_HIGH) {
-            highAlertActive = true;
-            Serial.printf("[MANUAL] CRITICAL ALERT: High Temp (%.2f°C > %.2f°C)!\n",
-                          tempData.value, CRITICAL_TEMP_HIGH);
+        if (healthState.hasCriticalHazard || healthState.hasOperatorAdvisory) {
+            Serial.printf("[MANUAL] SAFETY ALERT: %s\n", healthState.advisoryMsg);
+        }
+    }
+
+    void update(bool isAutoMode, const SensorDataMap& readings, const SystemHealthState& healthState,
+                ButtonDriver* btnIrrig = nullptr,
+                ButtonDriver* btnVent = nullptr,
+                ButtonDriver* btnLight = nullptr) {
+        if (isAutoMode) {
+            processAutomatic(readings);
+        } else {
+            processManual(readings, healthState, btnIrrig, btnVent, btnLight);
         }
 
-        SensorData humData = readings.get("Humidity");
-        if (!humData.isError && humData.value > CRITICAL_HUMIDITY_HIGH) {
-            highAlertActive = true;
-            Serial.printf("[MANUAL] CRITICAL ALERT: High Humidity (%.2f%% > %.2f%%)!\n",
-                          humData.value, CRITICAL_HUMIDITY_HIGH);
-        }
-
-        SensorData soilData = readings.get("Soil");
-        if (!soilData.isError && soilData.value > CRITICAL_SOIL_HIGH) {
-            highAlertActive = true;
-            Serial.printf("[MANUAL] CRITICAL ALERT: High Soil Potentiometer (%.2f%% > %.2f%%)!\n",
-                          soilData.value, CRITICAL_SOIL_HIGH);
-        }
-
-        SensorData lightData = readings.get("Light");
-        if (!lightData.isError && lightData.value > CRITICAL_LIGHT_HIGH) {
-            highAlertActive = true;
-            Serial.printf("[MANUAL] CRITICAL ALERT: High Light Level (%.2f > %.2f)!\n",
-                          lightData.value, CRITICAL_LIGHT_HIGH);
-        }
+        // Update LED_RED (Error), LED_GREEN (Working), and Buzzer (Safety alarm)
+        updateSystemIndicators(healthState);
     }
 
     void update(bool isAutoMode, const SensorDataMap& readings,
                 ButtonDriver* btnIrrig = nullptr,
                 ButtonDriver* btnVent = nullptr,
                 ButtonDriver* btnLight = nullptr) {
-        bool highAlertActive = false;
+        SafetyMonitorService safetyMonitor;
+        SystemHealthState healthState = safetyMonitor.evaluate(readings, isAutoMode);
+        update(isAutoMode, readings, healthState, btnIrrig, btnVent, btnLight);
+    }
 
-        if (isAutoMode) {
-            processAutomatic(readings, highAlertActive);
-        } else {
-            processManual(readings, highAlertActive, btnIrrig, btnVent, btnLight);
+    DisplayViewModel buildDisplayViewModel(bool isAutoMode, const SensorDataMap& readings, const SystemHealthState& healthState) const {
+        DisplayViewModel vm;
+        memset(&vm, 0, sizeof(DisplayViewModel));
+
+        snprintf(vm.modeText, sizeof(vm.modeText), "%s", isAutoMode ? "AUTO" : "MANUAL");
+        snprintf(vm.healthStatus, sizeof(vm.healthStatus), "%s", healthState.hasHardwareError ? "[ERR]" : "[OK]");
+
+        vm.sensorCount = readings.size() < 4 ? readings.size() : 4;
+        for (size_t i = 0; i < vm.sensorCount; ++i) {
+            Sensor* s = readings[i].sensor;
+            SensorData d = readings[i].data;
+            if (s != nullptr) {
+                snprintf(vm.sensors[i].label, sizeof(vm.sensors[i].label), "%.4s:", s->getName());
+                if (d.isError) {
+                    snprintf(vm.sensors[i].value, sizeof(vm.sensors[i].value), "ERR");
+                } else {
+                    snprintf(vm.sensors[i].value, sizeof(vm.sensors[i].value), "%.1f%s", d.value, s->getUnit());
+                }
+            }
         }
 
-        // Update LED_RED (Error), LED_GREEN (Working), and Buzzer (High data alarm)
-        updateSystemIndicators(readings, highAlertActive);
+        vm.actuatorCount = actuatorCount < 4 ? actuatorCount : 4;
+        for (size_t i = 0; i < vm.actuatorCount; ++i) {
+            if (actuators[i] != nullptr) {
+                snprintf(vm.actuators[i].label, sizeof(vm.actuators[i].label), "%.4s:", actuators[i]->getName());
+                snprintf(vm.actuators[i].value, sizeof(vm.actuators[i].value), "%s", actuators[i]->getStatusText());
+            }
+        }
+
+        snprintf(vm.advisoryBanner, sizeof(vm.advisoryBanner), "%s", healthState.advisoryMsg);
+        return vm;
     }
 };
 
-#endif // AUTOMATION_SERVICE_H
+#endif // GREENHOUSE_CONTROLLER_H
