@@ -51,20 +51,27 @@
 #define SOIL_DRY_THRESHOLD    30    // Нижче 30% вологості -> увімкнути полив
 #define SOIL_HYSTERESIS       5     // Гістерезис (%) -> вимкнути при 35%
 
-// Освітленість (Світло)
-#define LIGHT_DARK_THRESHOLD  500   // Поріг темряви (значення ADC / lux)
-#define LIGHT_HYSTERESIS      50    // Гістерезис для світла
+// Освітленість (Світло в Lux)
+#define LIGHT_DARK_THRESHOLD  500.0f   // Поріг темряви (lx)
+#define LIGHT_HYSTERESIS      50.0f    // Гістерезис для світла (lx)
 
 // Пороги помилок сенсорів (Sensor Error Thresholds)
-#define SENSOR_LIGHT_MAX_ERROR   100.0f // Максимальне значення світла (насичення / помилка)
-#define SENSOR_HUMIDITY_MAX_ERROR 90.0f  // Вологість > 90% -> Помилка системи
-#define SENSOR_TEMP_MIN_ERROR     -5.0f  // Температура < -5°C -> Помилка системи
+#define SENSOR_TEMP_MIN_ERROR     -5.0f      // Температура < -5°C -> Помилка системи
+#define SENSOR_TEMP_MAX_ERROR     60.0f      // Температура > 60°C -> Помилка системи
+#define SENSOR_HUMIDITY_MIN_ERROR 0.0f       // Вологість < 0% -> Помилка системи
+#define SENSOR_HUMIDITY_MAX_ERROR 90.0f      // Вологість > 90% -> Помилка системи
+#define SENSOR_SOIL_MIN_ERROR     0.0f       // Вологість ґрунту < 0% -> Помилка системи
+#define SENSOR_SOIL_MAX_ERROR     100.0f     // Вологість ґрунту > 100% -> Помилка системи
+#define SENSOR_LIGHT_MIN_ERROR    0.0f       // Min lux
+#define SENSOR_LIGHT_MAX_ERROR    100000.0f  // Max lux
 
-// Пороги критичних ситуацій у Manual Mode (Critical Emergency Thresholds)
-#define CRITICAL_LIGHT_HIGH       10000.0f // Критична освітленість (>10000 lumen/lux)
-#define CRITICAL_TEMP_HIGH        60.0f    // Критична температура (>60°C)
-#define CRITICAL_HUMIDITY_HIGH    85.0f    // Критична вологість (>85%)
-#define CRITICAL_SOIL_HIGH        85.0f    // Критична вологість ґрунту / потенціометра (>85%)
+// Пороги критичних ситуацій (Critical Emergency Thresholds)
+#define CRITICAL_LIGHT_HIGH       10000.0f   // Критична освітленість (>10000 lx)
+#define CRITICAL_TEMP_HIGH        45.0f      // Критична температура (>45°C)
+#define CRITICAL_TEMP_LOW         5.0f       // Заморозки (<5°C)
+#define CRITICAL_HUMIDITY_HIGH    85.0f      // Критична вологість (>85%)
+#define CRITICAL_SOIL_HIGH        85.0f      // Перезволоження (>85%)
+#define CRITICAL_SOIL_LOW         30.0f      // Сухий ґрунт (<30%)
 
 // ==========================================
 // 3. SYSTEM TIMINGS (Таймаути та інтервали)
