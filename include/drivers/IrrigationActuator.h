@@ -13,7 +13,7 @@ private:
 
 public:
     IrrigationActuator(int pin = PIN_LED_RING, int numPixels = NUM_PIXELS_RING)
-        : Actuator(pin, "Irrigation"),
+        : Actuator(pin, ActuatorType::IRRIGATION, "Irrigation"),
           pixels(numPixels, pin, NEO_GRB + NEO_KHZ800),
           active(false) {}
 

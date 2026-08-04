@@ -5,88 +5,64 @@
 #include "../drivers/Sensor.h"
 
 
-static inline bool streq_custom(const char* s1, const char* s2) {
-    if (s1 == s2) return true;
-    if (!s1 || !s2) return false;
-    while (*s1 && (*s1 == *s2)) {
-        s1++;
-        s2++;
-    }
-    return *s1 == *s2;
-}
-
+static const size_t MAX_SENSOR_ENTRIES = 16;
 
 struct SensorDataEntry {
     Sensor* sensor;
     SensorData data;
 };
 
-
 class SensorDataMap {
 private:
-    SensorDataEntry* entries;
+    SensorDataEntry entries[MAX_SENSOR_ENTRIES];
     size_t entryCount;
 
 public:
-    SensorDataMap() : entries(nullptr), entryCount(0) {}
-
-    explicit SensorDataMap(size_t count) : entries(nullptr), entryCount(count) {
-        if (entryCount > 0) {
-            entries = new SensorDataEntry[entryCount];
-            for (size_t i = 0; i < entryCount; ++i) {
-                entries[i].sensor = nullptr;
-                entries[i].data = {0.0f, true};
-            }
+    SensorDataMap() : entryCount(0) {
+        for (size_t i = 0; i < MAX_SENSOR_ENTRIES; ++i) {
+            entries[i].sensor = nullptr;
+            entries[i].data = {0.0f, true};
         }
     }
 
-    ~SensorDataMap() {
-        if (entries != nullptr) {
-            delete[] entries;
-            entries = nullptr;
+    explicit SensorDataMap(size_t count) : entryCount(count > MAX_SENSOR_ENTRIES ? MAX_SENSOR_ENTRIES : count) {
+        for (size_t i = 0; i < MAX_SENSOR_ENTRIES; ++i) {
+            entries[i].sensor = nullptr;
+            entries[i].data = {0.0f, true};
         }
     }
 
-    SensorDataMap(const SensorDataMap& other) : entries(nullptr), entryCount(other.entryCount) {
-        if (entryCount > 0) {
-            entries = new SensorDataEntry[entryCount];
-            for (size_t i = 0; i < entryCount; ++i) {
-                entries[i] = other.entries[i];
-            }
+    ~SensorDataMap() = default;
+
+    SensorDataMap(const SensorDataMap& other) : entryCount(other.entryCount) {
+        for (size_t i = 0; i < MAX_SENSOR_ENTRIES; ++i) {
+            entries[i] = other.entries[i];
         }
     }
 
     SensorDataMap& operator=(const SensorDataMap& other) {
         if (this != &other) {
-            if (entries != nullptr) {
-                delete[] entries;
-            }
             entryCount = other.entryCount;
-            if (entryCount > 0) {
-                entries = new SensorDataEntry[entryCount];
-                for (size_t i = 0; i < entryCount; ++i) {
-                    entries[i] = other.entries[i];
-                }
-            } else {
-                entries = nullptr;
+            for (size_t i = 0; i < MAX_SENSOR_ENTRIES; ++i) {
+                entries[i] = other.entries[i];
             }
         }
         return *this;
     }
 
-    SensorDataMap(SensorDataMap&& other) noexcept : entries(other.entries), entryCount(other.entryCount) {
-        other.entries = nullptr;
+    SensorDataMap(SensorDataMap&& other) noexcept : entryCount(other.entryCount) {
+        for (size_t i = 0; i < MAX_SENSOR_ENTRIES; ++i) {
+            entries[i] = other.entries[i];
+        }
         other.entryCount = 0;
     }
 
     SensorDataMap& operator=(SensorDataMap&& other) noexcept {
         if (this != &other) {
-            if (entries != nullptr) {
-                delete[] entries;
-            }
-            entries = other.entries;
             entryCount = other.entryCount;
-            other.entries = nullptr;
+            for (size_t i = 0; i < MAX_SENSOR_ENTRIES; ++i) {
+                entries[i] = other.entries[i];
+            }
             other.entryCount = 0;
         }
         return *this;
@@ -95,10 +71,8 @@ public:
     size_t size() const { return entryCount; }
     size_t count() const { return entryCount; }
 
-
     SensorDataEntry& operator[](size_t index) { return entries[index]; }
     const SensorDataEntry& operator[](size_t index) const { return entries[index]; }
-
 
     SensorData get(const Sensor* sensor) const {
         for (size_t i = 0; i < entryCount; ++i) {
@@ -109,14 +83,10 @@ public:
         return {0.0f, true};
     }
 
-    SensorData get(const char* name) const {
-        if (name == nullptr) return {0.0f, true};
+    SensorData get(SensorType type) const {
         for (size_t i = 0; i < entryCount; ++i) {
-            if (entries[i].sensor != nullptr) {
-                const char* sName = entries[i].sensor->getName();
-                if (streq_custom(sName, name)) {
-                    return entries[i].data;
-                }
+            if (entries[i].sensor != nullptr && entries[i].sensor->getType() == type) {
+                return entries[i].data;
             }
         }
         return {0.0f, true};

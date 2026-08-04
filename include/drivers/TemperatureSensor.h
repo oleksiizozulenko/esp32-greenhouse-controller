@@ -13,7 +13,7 @@ private:
 
 public:
     TemperatureSensor(int pin, DHT* externalDht = nullptr, uint8_t dhtType = DHT_TYPE) 
-        : Sensor(pin, "Temperature"), dht(nullptr), isExternalDht(false), lastTemperature(NAN) {
+        : Sensor(pin, SensorType::TEMPERATURE, "Temperature"), dht(nullptr), isExternalDht(false), lastTemperature(NAN) {
         if (externalDht != nullptr) {
             dht = externalDht;
             isExternalDht = true;
@@ -48,7 +48,7 @@ public:
 
         float temperature = dht ? dht->readTemperature() : NAN;
 
-        if (isnan(temperature) || temperature < SENSOR_TEMP_MIN_ERROR) {
+        if (isnan(temperature)) {
             lastTemperature = temperature;
             return {temperature, true};
         } else {

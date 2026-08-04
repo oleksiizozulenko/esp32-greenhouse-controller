@@ -13,7 +13,7 @@ private:
 
 public:
     HumiditySensor(int pin, DHT* externalDht = nullptr, uint8_t dhtType = DHT_TYPE) 
-        : Sensor(pin, "Humidity"), dht(nullptr), isExternalDht(false), lastHumidity(NAN) {
+        : Sensor(pin, SensorType::HUMIDITY, "Humidity"), dht(nullptr), isExternalDht(false), lastHumidity(NAN) {
         if (externalDht != nullptr) {
             dht = externalDht;
             isExternalDht = true;
@@ -48,7 +48,7 @@ public:
 
         float humidity = dht ? dht->readHumidity() : NAN;
 
-        if (isnan(humidity) || humidity > SENSOR_HUMIDITY_MAX_ERROR) {
+        if (isnan(humidity)) {
             lastHumidity = humidity;
             return {humidity, true};
         } else {

@@ -1,7 +1,7 @@
 # Design Document: Safety Monitor & GreenhouseController Architecture
 
 ## 1. Overview & Purpose
-This document specifies the architectural refactoring of `AutomationService` into `GreenhouseController` (`include/services/GreenhouseController.h`), the introduction of `SafetyMonitorService` (`include/services/SafetyMonitorService.h`), the update of `LightSensor` (`include/drivers/LightSensor.h`) to output Wokwi-compatible lux units on 3.3V ESP32 ADC, and the creation of a decoupled View Renderer `DisplayManager` (`include/services/DisplayManager.h`) consuming `DisplayViewModel` (`include/ui/DisplayViewModel.h`).
+This document specifies the architectural refactoring of the former automation logic into `GreenhouseController` (`include/GreenhouseController.h`), the introduction of `SafetyMonitorService` (`include/services/SafetyMonitorService.h`), the update of sensor and actuator drivers to use `SensorType`/`ActuatorType` identities, and the creation of a decoupled View Renderer `DisplayManager` (`include/services/DisplayManager.h`) consuming `DisplayViewModel` (`include/ui/DisplayViewModel.h`).
 
 ---
 
@@ -21,8 +21,8 @@ This document specifies the architectural refactoring of `AutomationService` int
 ```
 
 1. **`SensorsService`**: Reads hardware pins and builds `SensorDataMap`.
-2. **`SafetyMonitorService`**: Evaluates `SensorDataMap` against domain bounds and produces `SystemHealthState`.
-3. **`GreenhouseController`**: Accepts `readings`, `healthState`, and button states. Handles actuator logic (AUTO) or manual button toggles (MANUAL), and constructs `DisplayViewModel`.
+2. **`SafetyMonitorService`**: Evaluates `SensorDataMap` against domain bounds using `SensorType`-based lookups and produces `SystemHealthState`.
+3. **`GreenhouseController`**: Accepts `readings`, `healthState`, and button states, handles actuator logic (AUTO) or manual button toggles (MANUAL), and constructs `DisplayViewModel`.
 4. **`DisplayManager`**: Takes `DisplayViewModel` and draws pixel primitives on SSD1306 OLED.
 
 ---
@@ -45,6 +45,7 @@ $$\text{Lux} = \left(\frac{250593.5}{R_{LDR}}\right)^{\frac{1}{0.7}}$$
 ### 3.3 Option A Hardware Boundary Ownership Rule
 - **`LightSensor::read()` (Driver Level)**: Returns `{lux, isErr}` where `isErr` is `true` **only** for mathematical invalidity (`!isfinite(lux)` or division by zero when `rawADC == 0`). Driver does **not** evaluate `SENSOR_LIGHT_MIN_ERROR` or `SENSOR_LIGHT_MAX_ERROR`.
 - **`SafetyMonitorService` (Domain Level)**: Owns all domain boundary checks (`lux < SENSOR_LIGHT_MIN_ERROR` or `lux > SENSOR_LIGHT_MAX_ERROR`).
+- **Driver boundary rule**: drivers report read validity only (`isErr` for NaN/inf/math failure); domain-range validation stays in `SafetyMonitorService`.
 
 ---
 

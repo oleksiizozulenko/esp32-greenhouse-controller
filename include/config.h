@@ -3,6 +3,30 @@
 
 #include <Arduino.h>
 
+enum class SensorType {
+    UNKNOWN = 0,
+    TEMPERATURE,
+    HUMIDITY,
+    SOIL,
+    LIGHT
+};
+
+enum class ActuatorType {
+    UNKNOWN = 0,
+    VENTILATION,
+    IRRIGATION,
+    LIGHT
+};
+
+enum class SystemMode {
+    MANUAL = 0,
+    AUTOMATIC
+};
+
+inline SystemMode toggleSystemMode(SystemMode currentMode) {
+    return currentMode == SystemMode::AUTOMATIC ? SystemMode::MANUAL : SystemMode::AUTOMATIC;
+}
+
 // ==========================================
 // 1. PIN DEFINITIONS (Прив'язка до схеми)
 // ==========================================

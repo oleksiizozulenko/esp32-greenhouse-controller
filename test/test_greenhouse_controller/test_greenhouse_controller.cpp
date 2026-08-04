@@ -19,17 +19,17 @@ void setUp(void) {
     
     automation = new GreenhouseController(4, PIN_LED_RED, PIN_LED_GREEN, PIN_BUZZER);
     
-    ventActuator = new MockActuator(PIN_ACTUATOR_VENT, "Ventilation");
-    irrigActuator = new MockActuator(PIN_ACTUATOR_IRRIG, "Irrigation");
-    lightActuator = new MockActuator(PIN_ACTUATOR_LIGHT, "Light");
+    ventActuator = new MockActuator(PIN_ACTUATOR_VENT, ActuatorType::VENTILATION, "Ventilation");
+    irrigActuator = new MockActuator(PIN_ACTUATOR_IRRIG, ActuatorType::IRRIGATION, "Irrigation");
+    lightActuator = new MockActuator(PIN_ACTUATOR_LIGHT, ActuatorType::LIGHT, "Light");
 
     automation->addActuator(ventActuator);
     automation->addActuator(irrigActuator);
     automation->addActuator(lightActuator);
 
-    tempSensor = new MockSensor(PIN_TEMP, "Temperature", "°C");
-    soilSensor = new MockSensor(PIN_SOIL_POT, "Soil", "%");
-    lightSensor = new MockSensor(PIN_LDR, "Light", "lux");
+    tempSensor = new MockSensor(PIN_TEMP, SensorType::TEMPERATURE, "Temperature", "°C");
+    soilSensor = new MockSensor(PIN_SOIL_POT, SensorType::SOIL, "Soil", "%");
+    lightSensor = new MockSensor(PIN_LDR, SensorType::LIGHT, "Light", "lux");
 
     automation->begin();
 }
@@ -50,10 +50,10 @@ void tearDown(void) {
 
 void test_actuator_registration_and_lookup(void) {
     TEST_ASSERT_EQUAL_UINT(3, automation->getActuatorCount());
-    TEST_ASSERT_EQUAL_PTR(ventActuator, automation->getActuator("Ventilation"));
-    TEST_ASSERT_EQUAL_PTR(irrigActuator, automation->getActuator("Irrigation"));
-    TEST_ASSERT_EQUAL_PTR(lightActuator, automation->getActuator("Light"));
-    TEST_ASSERT_NULL(automation->getActuator("NonExistent"));
+    TEST_ASSERT_EQUAL_PTR(ventActuator, automation->getActuator(ActuatorType::VENTILATION));
+    TEST_ASSERT_EQUAL_PTR(irrigActuator, automation->getActuator(ActuatorType::IRRIGATION));
+    TEST_ASSERT_EQUAL_PTR(lightActuator, automation->getActuator(ActuatorType::LIGHT));
+    TEST_ASSERT_NULL(automation->getActuator(ActuatorType::UNKNOWN));
     TEST_ASSERT_NULL(automation->getActuator(99));
 }
 
@@ -257,6 +257,14 @@ static void releaseButton(ButtonDriver& btn, int pin) {
     btn.wasPressed(); // Complete release debounce
 }
 
+void test_mode_toggle_is_sticky(void) {
+    SystemMode mode = SystemMode::MANUAL;
+    mode = toggleSystemMode(mode);
+    TEST_ASSERT_EQUAL_INT(SystemMode::AUTOMATIC, mode);
+    mode = toggleSystemMode(mode);
+    TEST_ASSERT_EQUAL_INT(SystemMode::MANUAL, mode);
+}
+
 void test_manual_mode_button_toggles(void) {
     ButtonDriver btnIrrig(PIN_BTN_IRRIG);
     ButtonDriver btnVent(PIN_BTN_VENT);
@@ -337,7 +345,7 @@ void test_manual_mode_critical_light_alert(void) {
 }
 
 void test_manual_mode_critical_humidity_alert(void) {
-    MockSensor humSensor(PIN_DHT, "Humidity", "%");
+    MockSensor humSensor(PIN_DHT, SensorType::HUMIDITY, "Humidity", "%");
     humSensor.setData(88.0f, false); // > 85.0% threshold
     SensorDataMap readings(1);
     readings[0] = {&humSensor, humSensor.read()};
@@ -440,7 +448,7 @@ void test_safety_exact_boundary_inclusivity(void) {
     SafetyMonitorService monitor;
 
     // 0.0 lx is valid inclusive bound -> No error
-    MockSensor lightS(PIN_LDR, "Light", "lx");
+    MockSensor lightS(PIN_LDR, SensorType::LIGHT, "Light", "lx");
     lightS.setData(0.0f, false);
     SensorDataMap readings(1);
     readings[0] = {&lightS, lightS.read()};
@@ -534,6 +542,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_auto_light_daylight_turns_off);
     RUN_TEST(test_auto_light_sensor_error_isolation);
 
+    RUN_TEST(test_mode_toggle_is_sticky);
     RUN_TEST(test_manual_mode_button_toggles);
     RUN_TEST(test_manual_mode_null_drivers_safety);
     RUN_TEST(test_manual_mode_critical_temp_alert);

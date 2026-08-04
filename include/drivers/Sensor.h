@@ -13,6 +13,7 @@ struct SensorData {
 class Sensor {
 protected:
     int pin;
+    SensorType type;
     const char* name;
     unsigned long lastReadTime;
     const unsigned long readInterval;
@@ -26,8 +27,8 @@ protected:
     }
 
 public:
-    Sensor(int pin, const char* name = "Sensor", unsigned long readInterval = SENSOR_READ_INTERVAL)
-        : pin(pin), name(name), lastReadTime(0), readInterval(readInterval) {}
+    Sensor(int pin, SensorType type = SensorType::UNKNOWN, const char* name = "Sensor", unsigned long readInterval = SENSOR_READ_INTERVAL)
+        : pin(pin), type(type), name(name), lastReadTime(0), readInterval(readInterval) {}
 
     virtual ~Sensor() {}
     virtual void init() = 0;
@@ -35,6 +36,7 @@ public:
     virtual const char* getUnit() const = 0;
 
     int getPin() const { return pin; }
+    SensorType getType() const { return type; }
     const char* getName() const { return name; }
 };
 

@@ -13,7 +13,7 @@ private:
 
 public:
     LightActuator(int pin = PIN_LED_STRIP, int numPixels = NUM_PIXELS_STRIP)
-        : Actuator(pin, "Light"),
+        : Actuator(pin, ActuatorType::LIGHT, "Light"),
           pixels(numPixels, pin, NEO_GRB + NEO_KHZ800),
           active(false) {}
 

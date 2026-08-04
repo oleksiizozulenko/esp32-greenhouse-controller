@@ -15,7 +15,7 @@ private:
 
 public:
     VentilationActuator(int pin, int openAngle = SERVO_OPEN_ANGLE, int closeAngle = SERVO_CLOSE_ANGLE)
-        : Actuator(pin, "Ventilation"), active(false), openAngle(openAngle), closeAngle(closeAngle) {}
+        : Actuator(pin, ActuatorType::VENTILATION, "Ventilation"), active(false), openAngle(openAngle), closeAngle(closeAngle) {}
 
     void init() override {
         servo.attach(pin, 500, 2400);

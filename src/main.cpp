@@ -38,19 +38,13 @@ SensorsService sensorsService;
 SafetyMonitorService safetyMonitorService;
 GreenhouseController greenhouseController;
 
-enum SystemMode {
-  MODE_MANUAL,
-  MODE_AUTOMATIC
-};
+SystemMode currentMode = SystemMode::MANUAL;
 
 SystemMode readModeButton() {
-  // If Mode button is pressed (LOW with INPUT_PULLUP), system is in AUTOMATIC mode.
-  // Otherwise, system is in MANUAL mode.
-  if (btnMode.isPressed()) {
-    return MODE_AUTOMATIC;
-  } else {
-    return MODE_MANUAL;
+  if (btnMode.wasPressed()) {
+    currentMode = toggleSystemMode(currentMode);
   }
+  return currentMode;
 }
 
 void setup() {
@@ -112,7 +106,7 @@ void loop() {
 
   // 2. Read mode button state
   SystemMode mode = readModeButton();
-  bool isAutoMode = (mode == MODE_AUTOMATIC);
+  bool isAutoMode = (mode == SystemMode::AUTOMATIC);
 
   // 3. Safety Evaluation
   SystemHealthState healthState = safetyMonitorService.evaluate(readings, isAutoMode);

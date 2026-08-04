@@ -11,7 +11,7 @@ private:
 
 public:
     LightSensor(int pin) 
-        : Sensor(pin, "Light"), lastLightLevel(NAN) {}
+        : Sensor(pin, SensorType::LIGHT, "Light"), lastLightLevel(NAN) {}
 
     void init() override {
         pinMode(pin, INPUT);

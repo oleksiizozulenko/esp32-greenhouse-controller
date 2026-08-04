@@ -38,29 +38,33 @@ public:
                 break;
             }
 
-            const char* name = s->getName();
-            if (name != nullptr) {
-                if (strcmp(name, "Temperature") == 0) {
+            switch (s->getType()) {
+                case SensorType::TEMPERATURE:
                     if (d.value < SENSOR_TEMP_MIN_ERROR || d.value > SENSOR_TEMP_MAX_ERROR) {
                         state.hasHardwareError = true;
-                        break;
                     }
-                } else if (strcmp(name, "Humidity") == 0) {
+                    break;
+                case SensorType::HUMIDITY:
                     if (d.value < SENSOR_HUMIDITY_MIN_ERROR || d.value > SENSOR_HUMIDITY_MAX_ERROR) {
                         state.hasHardwareError = true;
-                        break;
                     }
-                } else if (strcmp(name, "Soil") == 0) {
+                    break;
+                case SensorType::SOIL:
                     if (d.value < SENSOR_SOIL_MIN_ERROR || d.value > SENSOR_SOIL_MAX_ERROR) {
                         state.hasHardwareError = true;
-                        break;
                     }
-                } else if (strcmp(name, "Light") == 0) {
+                    break;
+                case SensorType::LIGHT:
                     if (d.value < SENSOR_LIGHT_MIN_ERROR || d.value > SENSOR_LIGHT_MAX_ERROR) {
                         state.hasHardwareError = true;
-                        break;
                     }
-                }
+                    break;
+                default:
+                    break;
+            }
+
+            if (state.hasHardwareError) {
+                break;
             }
         }
 
@@ -71,10 +75,10 @@ public:
         }
 
         // Extract sensor values safely
-        SensorData tempData = readings.get("Temperature");
-        SensorData humData = readings.get("Humidity");
-        SensorData soilData = readings.get("Soil");
-        SensorData lightData = readings.get("Light");
+        SensorData tempData = readings.get(SensorType::TEMPERATURE);
+        SensorData humData = readings.get(SensorType::HUMIDITY);
+        SensorData soilData = readings.get(SensorType::SOIL);
+        SensorData lightData = readings.get(SensorType::LIGHT);
 
         // Priority 2: Overheat (Temp > 45°C)
         if (!tempData.isError && !isnan(tempData.value) && tempData.value > CRITICAL_TEMP_HIGH) {

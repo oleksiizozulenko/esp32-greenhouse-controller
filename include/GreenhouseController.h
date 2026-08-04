@@ -9,16 +9,6 @@
 #include "services/SensorsService.h"
 #include "services/SafetyMonitorService.h"
 
-static inline bool streq_custom_controller(const char* s1, const char* s2) {
-    if (s1 == s2) return true;
-    if (!s1 || !s2) return false;
-    while (*s1 && (*s1 == *s2)) {
-        s1++;
-        s2++;
-    }
-    return *s1 == *s2;
-}
-
 class GreenhouseController {
 private:
     Actuator** actuators;
@@ -80,10 +70,9 @@ public:
         return nullptr;
     }
 
-    Actuator* getActuator(const char* name) const {
-        if (name == nullptr) return nullptr;
+    Actuator* getActuator(ActuatorType type) const {
         for (size_t i = 0; i < actuatorCount; ++i) {
-            if (actuators[i] != nullptr && streq_custom_controller(actuators[i]->getName(), name)) {
+            if (actuators[i] != nullptr && actuators[i]->getType() == type) {
                 return actuators[i];
             }
         }
@@ -128,8 +117,8 @@ public:
 
     void processAutomatic(const SensorDataMap& readings) {
         // 1. Temperature vs Servo Ventilation Control
-        SensorData tempData = readings.get("Temperature");
-        Actuator* vent = getActuator("Ventilation");
+        SensorData tempData = readings.get(SensorType::TEMPERATURE);
+        Actuator* vent = getActuator(ActuatorType::VENTILATION);
         if (vent != nullptr) {
             if (tempData.isError) {
                 if (vent->isOn()) {
@@ -150,8 +139,8 @@ public:
         }
 
         // 2. Soil Moisture vs LED_RING Irrigation Control
-        SensorData soilData = readings.get("Soil");
-        Actuator* irrig = getActuator("Irrigation");
+        SensorData soilData = readings.get(SensorType::SOIL);
+        Actuator* irrig = getActuator(ActuatorType::IRRIGATION);
         if (irrig != nullptr) {
             if (soilData.isError) {
                 if (irrig->isOn()) {
@@ -172,8 +161,8 @@ public:
         }
 
         // 3. Light Sensor vs LED_STRIP Light Control
-        SensorData lightData = readings.get("Light");
-        Actuator* light = getActuator("Light");
+        SensorData lightData = readings.get(SensorType::LIGHT);
+        Actuator* light = getActuator(ActuatorType::LIGHT);
         if (light != nullptr) {
             if (lightData.isError) {
                 if (light->isOn()) {
@@ -196,7 +185,7 @@ public:
                        ButtonDriver* btnIrrig = nullptr,
                        ButtonDriver* btnVent = nullptr,
                        ButtonDriver* btnLight = nullptr) {
-        Actuator* irrig = getActuator("Irrigation");
+        Actuator* irrig = getActuator(ActuatorType::IRRIGATION);
         if (btnIrrig != nullptr && btnIrrig->wasPressed() && irrig != nullptr) {
             if (irrig->isOn()) {
                 Serial.println("[MANUAL] Irrigation Button pressed -> Turning OFF Irrigation");
@@ -207,7 +196,7 @@ public:
             }
         }
 
-        Actuator* vent = getActuator("Ventilation");
+        Actuator* vent = getActuator(ActuatorType::VENTILATION);
         if (btnVent != nullptr && btnVent->wasPressed() && vent != nullptr) {
             if (vent->isOn()) {
                 Serial.println("[MANUAL] Ventilation Button pressed -> Closing Ventilation");
@@ -218,7 +207,7 @@ public:
             }
         }
 
-        Actuator* light = getActuator("Light");
+        Actuator* light = getActuator(ActuatorType::LIGHT);
         if (btnLight != nullptr && btnLight->wasPressed() && light != nullptr) {
             if (light->isOn()) {
                 Serial.println("[MANUAL] Light Button pressed -> Turning OFF Light");
