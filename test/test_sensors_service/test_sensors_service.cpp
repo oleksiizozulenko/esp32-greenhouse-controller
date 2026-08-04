@@ -31,7 +31,7 @@ static MockSensor* lightSensor;
 
 void setUp(void) {
     resetMockArduinoState();
-    
+
     sensorsService = new SensorsService(2, 2000);
 
     tempSensor = new MockSensor(PIN_TEMP, SensorType::TEMPERATURE, "Temperature", "°C");

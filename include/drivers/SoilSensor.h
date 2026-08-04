@@ -9,7 +9,7 @@ private:
     float lastSoilMoisture;
 
 public:
-    SoilSensor(int pin) 
+    SoilSensor(int pin)
         : Sensor(pin, SensorType::SOIL, "Soil"), lastSoilMoisture(NAN) {}
 
     void init() override {

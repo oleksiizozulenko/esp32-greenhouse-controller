@@ -120,7 +120,7 @@ struct SystemHealthState {
 struct DisplayViewModel {
     char modeText[8];       // "AUTO" or "MANUAL"
     char healthStatus[8];   // "[OK]" or "[ERR]"
-    
+
     struct LineItem {
         char label[8];      // "Light:"
         char value[10];     // "450lx" or "ERR"

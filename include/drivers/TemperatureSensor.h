@@ -12,7 +12,7 @@ private:
     float lastTemperature;
 
 public:
-    TemperatureSensor(int pin, DHT* externalDht = nullptr, uint8_t dhtType = DHT_TYPE) 
+    TemperatureSensor(int pin, DHT* externalDht = nullptr, uint8_t dhtType = DHT_TYPE)
         : Sensor(pin, SensorType::TEMPERATURE, "Temperature"), dht(nullptr), isExternalDht(false), lastTemperature(NAN) {
         if (externalDht != nullptr) {
             dht = externalDht;

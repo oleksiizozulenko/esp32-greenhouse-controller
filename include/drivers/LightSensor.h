@@ -10,7 +10,7 @@ private:
     float lastLightLevel;
 
 public:
-    LightSensor(int pin) 
+    LightSensor(int pin)
         : Sensor(pin, SensorType::LIGHT, "Light"), lastLightLevel(NAN) {}
 
     void init() override {

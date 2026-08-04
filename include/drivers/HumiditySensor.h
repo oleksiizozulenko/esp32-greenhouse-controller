@@ -12,7 +12,7 @@ private:
     float lastHumidity;
 
 public:
-    HumiditySensor(int pin, DHT* externalDht = nullptr, uint8_t dhtType = DHT_TYPE) 
+    HumiditySensor(int pin, DHT* externalDht = nullptr, uint8_t dhtType = DHT_TYPE)
         : Sensor(pin, SensorType::HUMIDITY, "Humidity"), dht(nullptr), isExternalDht(false), lastHumidity(NAN) {
         if (externalDht != nullptr) {
             dht = externalDht;

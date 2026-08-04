@@ -16,9 +16,9 @@ static MockSensor* lightSensor;
 
 void setUp(void) {
     resetMockArduinoState();
-    
+
     automation = new GreenhouseController(4, PIN_LED_RED, PIN_LED_GREEN, PIN_BUZZER);
-    
+
     ventActuator = new MockActuator(PIN_ACTUATOR_VENT, ActuatorType::VENTILATION, "Ventilation");
     irrigActuator = new MockActuator(PIN_ACTUATOR_IRRIG, ActuatorType::IRRIGATION, "Irrigation");
     lightActuator = new MockActuator(PIN_ACTUATOR_LIGHT, ActuatorType::LIGHT, "Light");
@@ -418,7 +418,7 @@ void test_system_indicators_high_alert_buzzer_alarm(void) {
 
 void test_safety_nan_and_inf_per_sensor(void) {
     SafetyMonitorService monitor;
-    
+
     // NaN in temperature -> Hardware error
     tempSensor->setData(NAN, false);
     SensorDataMap readings(1);
@@ -432,7 +432,7 @@ void test_safety_nan_and_inf_per_sensor(void) {
 
 void test_safety_missing_sensor_in_map(void) {
     SafetyMonitorService monitor;
-    
+
     // Map contains only Temperature (safe value) -> No hardware error from missing sensors
     tempSensor->setData(25.0f, false);
     SensorDataMap readings(1);
@@ -525,7 +525,7 @@ int main(int argc, char **argv) {
     UNITY_BEGIN();
 
     RUN_TEST(test_actuator_registration_and_lookup);
-    
+
     RUN_TEST(test_auto_ventilation_high_temp_opens);
     RUN_TEST(test_auto_ventilation_hysteresis_holds_open);
     RUN_TEST(test_auto_ventilation_low_temp_closes);
