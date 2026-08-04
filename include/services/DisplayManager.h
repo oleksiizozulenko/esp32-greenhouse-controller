@@ -4,8 +4,7 @@
 #include <Arduino.h>
 #include <Adafruit_SSD1306.h>
 #include "../config.h"
-#include "SensorsService.h"
-#include "AutomationService.h"
+#include "../ui/DisplayViewModel.h"
 
 #define SCREEN_ADDR 0x3C
 #define OLED_SDA 21
@@ -41,7 +40,7 @@ public:
         display.display();
     }
 
-    void render(bool isAutoMode, const SensorDataMap& readings, const AutomationService& automationService) {
+    void render(const DisplayViewModel& vm) {
         unsigned long currentTime = millis();
         if (currentTime - lastRefreshTime < refreshInterval) {
             return;
@@ -55,57 +54,27 @@ public:
         // 1. Header: Mode & System Health Status ([OK] or [ERR])
         display.setCursor(0, 0);
         display.print("MODE: ");
-        display.print(isAutoMode ? "AUTO" : "MANUAL");
+        display.print(vm.modeText);
 
-        bool hasError = false;
-        for (size_t i = 0; i < readings.size(); ++i) {
-            if (readings[i].data.isError) {
-                hasError = true;
-                break;
-            }
-        }
         display.setCursor(95, 0);
-        display.print(hasError ? "[ERR]" : "[OK]");
+        display.print(vm.healthStatus);
 
         display.setCursor(0, 9);
         display.println("---------------------");
 
-        // 2. Generic Dynamic Sensors Section (OCP-Compliant)
+        // 2. Generic Dynamic Sensors Section
         int yPos = 18;
-        size_t sensorCount = readings.size();
-        for (size_t i = 0; i < sensorCount && i < 4; i += 2) {
+        for (size_t i = 0; i < vm.sensorCount && i < 4; i += 2) {
             // Left column item
-            Sensor* s1 = readings[i].sensor;
-            SensorData d1 = readings[i].data;
-            if (s1 != nullptr) {
-                display.setCursor(0, yPos);
-                char label[6];
-                snprintf(label, sizeof(label), "%.4s:", s1->getName());
-                display.print(label);
-                if (d1.isError) {
-                    display.print("ERR");
-                } else {
-                    display.print(d1.value, 1);
-                    display.print(s1->getUnit());
-                }
-            }
+            display.setCursor(0, yPos);
+            display.print(vm.sensors[i].label);
+            display.print(vm.sensors[i].value);
 
             // Right column item
-            if (i + 1 < sensorCount) {
-                Sensor* s2 = readings[i + 1].sensor;
-                SensorData d2 = readings[i + 1].data;
-                if (s2 != nullptr) {
-                    display.setCursor(64, yPos);
-                    char label[6];
-                    snprintf(label, sizeof(label), "%.4s:", s2->getName());
-                    display.print(label);
-                    if (d2.isError) {
-                        display.print("ERR");
-                    } else {
-                        display.print(d2.value, 1);
-                        display.print(s2->getUnit());
-                    }
-                }
+            if (i + 1 < vm.sensorCount) {
+                display.setCursor(64, yPos);
+                display.print(vm.sensors[i + 1].label);
+                display.print(vm.sensors[i + 1].value);
             }
 
             yPos += 10;
@@ -114,33 +83,27 @@ public:
         display.setCursor(0, 37);
         display.println("---------------------");
 
-        // 3. Generic Dynamic Actuators Section (OCP-Compliant)
-        yPos = 46;
-        size_t actCount = automationService.getActuatorCount();
-        for (size_t i = 0; i < actCount && i < 4; i += 2) {
-            // Left column item
-            Actuator* a1 = automationService.getActuator(i);
-            if (a1 != nullptr) {
+        // 3. Actuators Section or Advisory Banner
+        if (vm.advisoryBanner[0] != '\0') {
+            display.setCursor(0, 46);
+            display.print(vm.advisoryBanner);
+        } else {
+            yPos = 46;
+            for (size_t i = 0; i < vm.actuatorCount && i < 4; i += 2) {
+                // Left column item
                 display.setCursor(0, yPos);
-                char label[6];
-                snprintf(label, sizeof(label), "%.4s:", a1->getName());
-                display.print(label);
-                display.print(a1->getStatusText());
-            }
+                display.print(vm.actuators[i].label);
+                display.print(vm.actuators[i].value);
 
-            // Right column item
-            if (i + 1 < actCount) {
-                Actuator* a2 = automationService.getActuator(i + 1);
-                if (a2 != nullptr) {
+                // Right column item
+                if (i + 1 < vm.actuatorCount) {
                     display.setCursor(64, yPos);
-                    char label[6];
-                    snprintf(label, sizeof(label), "%.4s:", a2->getName());
-                    display.print(label);
-                    display.print(a2->getStatusText());
+                    display.print(vm.actuators[i + 1].label);
+                    display.print(vm.actuators[i + 1].value);
                 }
-            }
 
-            yPos += 10;
+                yPos += 10;
+            }
         }
 
         display.display();
