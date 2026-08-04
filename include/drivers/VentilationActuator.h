@@ -18,17 +18,23 @@ public:
         : Actuator(pin, ActuatorType::VENTILATION, "Ventilation"), active(false), openAngle(openAngle), closeAngle(closeAngle) {}
 
     void init() override {
+        pinMode(pin, OUTPUT);
+        servo.setPeriodHertz(50);
         servo.attach(pin, 500, 2400);
-        turnOff();
+        delay(250);
+        servo.write(closeAngle);
+        active = false;
     }
 
     void turnOn() override {
         servo.write(openAngle);
+        delay(150);
         active = true;
     }
 
     void turnOff() override {
         servo.write(closeAngle);
+        delay(150);
         active = false;
     }
 
