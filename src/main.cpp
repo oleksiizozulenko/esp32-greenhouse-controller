@@ -38,11 +38,18 @@ SensorsService sensorsService;
 SafetyMonitorService safetyMonitorService;
 GreenhouseController greenhouseController;
 
-// System Mode & Mutexes / Queues
+// System Mode & Mutexes / Queues / Event Groups
 SystemMode currentMode = SystemMode::MANUAL;
 SemaphoreHandle_t sensorMutex = NULL;
 SemaphoreHandle_t modeMutex = NULL;
 QueueHandle_t buttonEventQueue = NULL;
+
+// FreeRTOS Event Group Handle & Bitmask Definitions
+EventGroupHandle_t systemEventGroup = NULL;
+#define EVENT_BIT_SENSOR_READY    (1 << 0) // Bit 0: New sensor data sampled
+#define EVENT_BIT_BUTTON_EVENT    (1 << 1) // Bit 1: Hardware button event queued
+#define EVENT_BIT_SAFETY_WARNING  (1 << 2) // Bit 2: Safety warning condition triggered
+#define EVENT_BIT_MODE_CHANGED    (1 << 3) // Bit 3: System mode toggled (AUTO/MANUAL)
 
 // FreeRTOS Task Handles for Memory Profiling
 TaskHandle_t hTaskSensors = NULL;
@@ -107,7 +114,7 @@ void handleAutomaticMode(const SensorDataMap& readings) {
 // FreeRTOS Task Definitions
 // -------------------------------------------------------------------
 
-// 1. TaskSensors: Samples sensors every 2000ms
+// 1. TaskSensors: Samples sensors every 2000ms and broadcasts EVENT_BIT_SENSOR_READY
 void vTaskSensors(void* pvParameters) {
   (void)pvParameters;
   TickType_t xLastWakeTime = xTaskGetTickCount();
@@ -121,17 +128,43 @@ void vTaskSensors(void* pvParameters) {
       xSemaphoreGive(sensorMutex);
     }
 
+    // Publish event: Broadcast SENSOR_READY bit to all subscribers!
+    if (systemEventGroup != NULL) {
+      xEventGroupSetBits(systemEventGroup, EVENT_BIT_SENSOR_READY);
+    }
+
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
   }
 }
 
-// 2. TaskControl: Processes hardware ISR queue events, safety monitoring, and control loop every 100ms
+// 2. TaskControl: Subscriber 1 -> Listens for SENSOR_READY, BUTTON_EVENT, and SAFETY_WARNING
 void vTaskControl(void* pvParameters) {
   (void)pvParameters;
   TickType_t xLastWakeTime = xTaskGetTickCount();
   const TickType_t xFrequency = pdMS_TO_TICKS(100);
 
   for (;;) {
+    // Check subscribed bits from Event Group
+    if (systemEventGroup != NULL) {
+      EventBits_t bits = xEventGroupWaitBits(
+          systemEventGroup,
+          EVENT_BIT_SENSOR_READY | EVENT_BIT_BUTTON_EVENT | EVENT_BIT_SAFETY_WARNING,
+          pdTRUE,  // Clear bits on exit
+          pdFALSE, // Wake on ANY bit
+          0        // Non-blocking poll
+      );
+
+      if (bits & EVENT_BIT_SENSOR_READY) {
+        Serial.println("[EVENT GROUP] vTaskControl notified: EVENT_BIT_SENSOR_READY!");
+      }
+      if (bits & EVENT_BIT_BUTTON_EVENT) {
+        Serial.println("[EVENT GROUP] vTaskControl notified: EVENT_BIT_BUTTON_EVENT!");
+      }
+      if (bits & EVENT_BIT_SAFETY_WARNING) {
+        Serial.println("[EVENT GROUP] vTaskControl notified: EVENT_BIT_SAFETY_WARNING!");
+      }
+    }
+
     // A. Drain and process queued hardware interrupt events
     ButtonEvent evt;
     while (xQueueReceive(buttonEventQueue, &evt, 0) == pdTRUE) {
@@ -141,11 +174,19 @@ void vTaskControl(void* pvParameters) {
           Serial.printf("[ISR QUEUE EVENT] Mode button (ID %u) pressed at %lu ms -> Mode toggled to: %s\n",
                         evt.buttonId, evt.timestamp, currentMode == SystemMode::AUTOMATIC ? "AUTOMATIC" : "MANUAL");
           xSemaphoreGive(modeMutex);
+
+          if (systemEventGroup != NULL) {
+            xEventGroupSetBits(systemEventGroup, EVENT_BIT_MODE_CHANGED);
+          }
         }
       } else {
         Serial.printf("[ISR QUEUE EVENT] Actuator ButtonType: %d, ID: %u pressed at %lu ms -> Notifying Controller\n",
                       (int)evt.type, evt.buttonId, evt.timestamp);
         greenhouseController.onButtonPressed(evt.type);
+
+        if (systemEventGroup != NULL) {
+          xEventGroupSetBits(systemEventGroup, EVENT_BIT_BUTTON_EVENT);
+        }
       }
     }
 
@@ -189,13 +230,31 @@ void vTaskControl(void* pvParameters) {
   }
 }
 
-// 3. TaskDisplay: Renders OLED ViewModel every 200ms on Core 0
+// 3. TaskDisplay: Subscriber 2 -> Listens for SENSOR_READY, MODE_CHANGED, and SAFETY_WARNING on Core 0
 void vTaskDisplay(void* pvParameters) {
   (void)pvParameters;
   TickType_t xLastWakeTime = xTaskGetTickCount();
   const TickType_t xFrequency = pdMS_TO_TICKS(200);
 
   for (;;) {
+    // Check subscribed bits from Event Group
+    if (systemEventGroup != NULL) {
+      EventBits_t bits = xEventGroupWaitBits(
+          systemEventGroup,
+          EVENT_BIT_SENSOR_READY | EVENT_BIT_MODE_CHANGED | EVENT_BIT_SAFETY_WARNING,
+          pdTRUE,  // Clear bits on exit
+          pdFALSE, // Wake on ANY bit
+          0        // Non-blocking poll
+      );
+
+      if (bits & EVENT_BIT_SENSOR_READY) {
+        Serial.println("[EVENT GROUP] vTaskDisplay notified in parallel: EVENT_BIT_SENSOR_READY!");
+      }
+      if (bits & EVENT_BIT_MODE_CHANGED) {
+        Serial.println("[EVENT GROUP] vTaskDisplay notified in parallel: EVENT_BIT_MODE_CHANGED!");
+      }
+    }
+
     SensorDataMap readingsCopy;
     SystemHealthState healthCopy;
 
@@ -221,12 +280,13 @@ void vTaskDisplay(void* pvParameters) {
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("Greenhouse Controller Starting (RTOS Encapsulated ISR Mode)...");
+  Serial.println("Greenhouse Controller Starting (FreeRTOS Event Groups Mode)...");
 
-  // Create Synchronization Mutexes & Event Queue
+  // Create Synchronization Mutexes, Event Queue, and Event Group
   sensorMutex = xSemaphoreCreateMutex();
   modeMutex = xSemaphoreCreateMutex();
   buttonEventQueue = xQueueCreate(10, sizeof(ButtonEvent));
+  systemEventGroup = xEventGroupCreate();
 
   // Initialize Sensors
   sensorsService.addSensor(&humiditySensor);
