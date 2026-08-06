@@ -2,26 +2,15 @@
 #define BUTTON_DRIVER_H
 
 #include <Arduino.h>
-#include "../config.h"
-
-enum class ButtonType {
-    MODE = 0,
-    IRRIGATION,
-    VENTILATION,
-    LIGHT
-};
-
-class IButtonListener {
-public:
-    virtual ~IButtonListener() = default;
-    virtual void onButtonPressed(ButtonType button) = 0;
-};
+#include "../../config.h"
+#include "ButtonType.h"
+#include "ButtonEvent.h"
+#include "IButtonListener.h"
 
 class ButtonDriver {
 private:
     int pin;
     ButtonType buttonType;
-    IButtonListener* listener;
     bool lastState;
     bool currentState;
     unsigned long lastDebounceTime;
@@ -29,17 +18,11 @@ private:
 
 public:
     ButtonDriver(int pin, ButtonType buttonType = ButtonType::MODE, unsigned long debounceDelay = DEBOUNCE_DELAY)
-        : pin(pin), buttonType(buttonType), listener(nullptr), lastState(HIGH), currentState(HIGH),
-          lastDebounceTime(0), debounceDelay(debounceDelay) {
-        pinMode(pin, INPUT_PULLUP);
-    }
+        : pin(pin), buttonType(buttonType), lastState(HIGH), currentState(HIGH),
+          lastDebounceTime(0), debounceDelay(debounceDelay) {}
 
     ButtonDriver(int pin, unsigned long debounceDelay)
         : ButtonDriver(pin, ButtonType::MODE, debounceDelay) {}
-
-    void setListener(IButtonListener* newListener) {
-        listener = newListener;
-    }
 
     void init() {
         pinMode(pin, INPUT_PULLUP);
@@ -47,11 +30,11 @@ public:
         lastState = currentState;
     }
 
-    bool isPressed() {
+    bool isPressed() const {
         return digitalRead(pin) == LOW;
     }
 
-    // Returns true once per button press event (debounced) and notifies listener if set
+    // Returns true once per debounced button press event
     bool wasPressed() {
         bool reading = digitalRead(pin);
         bool pressedEvent = false;
@@ -65,19 +48,12 @@ public:
                 currentState = reading;
                 if (currentState == LOW) {
                     pressedEvent = true;
-                    if (listener != nullptr) {
-                        listener->onButtonPressed(buttonType);
-                    }
                 }
             }
         }
 
         lastState = reading;
         return pressedEvent;
-    }
-
-    void checkEvent() {
-        wasPressed();
     }
 
     void toggle() {

@@ -8,7 +8,7 @@
 #include "drivers/VentilationActuator.h"
 #include "drivers/IrrigationActuator.h"
 #include "drivers/LightActuator.h"
-#include "drivers/ButtonDriver.h"
+#include "drivers/buttons/ButtonDriver.h"
 #include "services/SensorsService.h"
 #include "services/SafetyMonitorService.h"
 #include "services/DisplayManager.h"
@@ -38,29 +38,15 @@ SensorsService sensorsService;
 SafetyMonitorService safetyMonitorService;
 GreenhouseController greenhouseController;
 
-// System Mode & Mutexes
+// System Mode & Mutexes / Queues
 SystemMode currentMode = SystemMode::MANUAL;
 SemaphoreHandle_t sensorMutex = NULL;
 SemaphoreHandle_t modeMutex = NULL;
+QueueHandle_t buttonEventQueue = NULL;
 
 // Shared State Guarded by Mutex
 SensorDataMap globalReadings;
 SystemHealthState globalHealthState;
-
-SystemMode readModeButton() {
-  if (btnMode.wasPressed()) {
-    if (xSemaphoreTake(modeMutex, portMAX_DELAY) == pdTRUE) {
-      currentMode = toggleSystemMode(currentMode);
-      xSemaphoreGive(modeMutex);
-    }
-  }
-  SystemMode mode = SystemMode::MANUAL;
-  if (xSemaphoreTake(modeMutex, portMAX_DELAY) == pdTRUE) {
-    mode = currentMode;
-    xSemaphoreGive(modeMutex);
-  }
-  return mode;
-}
 
 void handleManualMode() {
   static unsigned long lastLog = 0;
@@ -109,36 +95,66 @@ void vTaskSensors(void* pvParameters) {
   }
 }
 
-// 2. TaskButtons: Polls button state and triggers event listeners every 20ms
+// 2. TaskButtons: Polls debounced buttons every 20ms and pushes events onto buttonEventQueue
 void vTaskButtons(void* pvParameters) {
   (void)pvParameters;
   TickType_t xLastWakeTime = xTaskGetTickCount();
   const TickType_t xFrequency = pdMS_TO_TICKS(20);
 
   for (;;) {
-    btnIrrig.checkEvent();
-    btnVent.checkEvent();
-    btnLight.checkEvent();
-
-    readModeButton();
+    if (btnMode.wasPressed()) {
+      ButtonEvent evt(ButtonType::MODE, millis());
+      xQueueSend(buttonEventQueue, &evt, 0);
+    }
+    if (btnIrrig.wasPressed()) {
+      ButtonEvent evt(ButtonType::IRRIGATION, millis());
+      xQueueSend(buttonEventQueue, &evt, 0);
+    }
+    if (btnVent.wasPressed()) {
+      ButtonEvent evt(ButtonType::VENTILATION, millis());
+      xQueueSend(buttonEventQueue, &evt, 0);
+    }
+    if (btnLight.wasPressed()) {
+      ButtonEvent evt(ButtonType::LIGHT, millis());
+      xQueueSend(buttonEventQueue, &evt, 0);
+    }
 
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
   }
 }
 
-// 3. TaskControl: Runs automatic control logic and safety monitoring every 100ms
+// 3. TaskControl: Processes button event queue items, safety monitoring, and control loop every 100ms
 void vTaskControl(void* pvParameters) {
   (void)pvParameters;
   TickType_t xLastWakeTime = xTaskGetTickCount();
   const TickType_t xFrequency = pdMS_TO_TICKS(100);
 
   for (;;) {
+    // A. Drain and process queued button events
+    ButtonEvent evt;
+    while (xQueueReceive(buttonEventQueue, &evt, 0) == pdTRUE) {
+      if (evt.type == ButtonType::MODE) {
+        if (xSemaphoreTake(modeMutex, portMAX_DELAY) == pdTRUE) {
+          currentMode = toggleSystemMode(currentMode);
+          Serial.printf("[QUEUE EVENT] Mode button pressed at %lu ms -> Mode toggled to: %s\n",
+                        evt.timestamp, currentMode == SystemMode::AUTOMATIC ? "AUTOMATIC" : "MANUAL");
+          xSemaphoreGive(modeMutex);
+        }
+      } else {
+        Serial.printf("[QUEUE EVENT] Actuator Button %d pressed at %lu ms -> Notifying Controller\n",
+                      (int)evt.type, evt.timestamp);
+        greenhouseController.onButtonPressed(evt.type);
+      }
+    }
+
+    // B. Copy latest sensor readings
     SensorDataMap readingsCopy;
     if (xSemaphoreTake(sensorMutex, portMAX_DELAY) == pdTRUE) {
       readingsCopy = globalReadings;
       xSemaphoreGive(sensorMutex);
     }
 
+    // C. Read current system mode safely
     SystemMode mode = SystemMode::MANUAL;
     if (xSemaphoreTake(modeMutex, portMAX_DELAY) == pdTRUE) {
       mode = currentMode;
@@ -146,6 +162,7 @@ void vTaskControl(void* pvParameters) {
     }
     bool isAutoMode = (mode == SystemMode::AUTOMATIC);
 
+    // D. Evaluate safety conditions
     SystemHealthState healthState = safetyMonitorService.evaluate(readingsCopy, isAutoMode);
 
     if (xSemaphoreTake(sensorMutex, portMAX_DELAY) == pdTRUE) {
@@ -153,12 +170,14 @@ void vTaskControl(void* pvParameters) {
       xSemaphoreGive(sensorMutex);
     }
 
+    // E. Mode logging
     if (isAutoMode) {
       handleAutomaticMode(readingsCopy);
     } else {
       handleManualMode();
     }
 
+    // F. Execute automatic/manual control updates
     greenhouseController.update(isAutoMode, readingsCopy, healthState);
 
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
@@ -197,11 +216,12 @@ void vTaskDisplay(void* pvParameters) {
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("Greenhouse Controller Starting (RTOS Mode)...");
+  Serial.println("Greenhouse Controller Starting (RTOS Mode + Button Queue)...");
 
-  // Create Synchronization Mutexes
+  // Create Synchronization Mutexes & Event Queue
   sensorMutex = xSemaphoreCreateMutex();
   modeMutex = xSemaphoreCreateMutex();
+  buttonEventQueue = xQueueCreate(10, sizeof(ButtonEvent));
 
   // Initialize Sensors
   sensorsService.addSensor(&humiditySensor);
@@ -216,11 +236,6 @@ void setup() {
   greenhouseController.addActuator(&lightActuator);
   greenhouseController.begin();
 
-  // Subscribe GreenhouseController to Button Events
-  btnIrrig.setListener(&greenhouseController);
-  btnVent.setListener(&greenhouseController);
-  btnLight.setListener(&greenhouseController);
-
   // Initialize Buttons
   btnMode.init();
   btnIrrig.init();
@@ -229,7 +244,7 @@ void setup() {
 
   // Initialize Display
   displayManager.init();
-  Serial.println("Greenhouse Controller Hardware Ready. Creating FreeRTOS Tasks...");
+  Serial.println("Greenhouse Controller Hardware Ready. Creating FreeRTOS Tasks & Queues...");
 
   // Create FreeRTOS Tasks
   xTaskCreatePinnedToCore(vTaskSensors, "TaskSensors", 4096, NULL, 2, NULL, 1);
@@ -237,11 +252,12 @@ void setup() {
   xTaskCreatePinnedToCore(vTaskControl, "TaskControl", 4096, NULL, 3, NULL, 1);
   xTaskCreatePinnedToCore(vTaskDisplay, "TaskDisplay", 4096, NULL, 1, NULL, 0);
 
-  Serial.println("FreeRTOS Tasks Started Successfully.");
+  Serial.println("FreeRTOS Tasks & Queue Started Successfully.");
 }
 
 void loop() {
   // FreeRTOS scheduler handles tasks. Delete default loop task to reclaim stack memory.
   vTaskDelete(NULL);
 }
+
 

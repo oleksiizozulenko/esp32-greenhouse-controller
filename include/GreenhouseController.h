@@ -4,7 +4,7 @@
 #include <Arduino.h>
 #include "config.h"
 #include "drivers/Actuator.h"
-#include "drivers/ButtonDriver.h"
+#include "drivers/buttons/ButtonDriver.h"
 #include "ui/DisplayViewModel.h"
 #include "services/SensorsService.h"
 #include "services/SafetyMonitorService.h"
