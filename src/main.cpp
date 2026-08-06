@@ -44,9 +44,39 @@ SemaphoreHandle_t sensorMutex = NULL;
 SemaphoreHandle_t modeMutex = NULL;
 QueueHandle_t buttonEventQueue = NULL;
 
+// FreeRTOS Task Handles for Memory Profiling
+TaskHandle_t hTaskSensors = NULL;
+TaskHandle_t hTaskControl = NULL;
+TaskHandle_t hTaskDisplay = NULL;
+
 // Shared State Guarded by Mutex
 SensorDataMap globalReadings;
 SystemHealthState globalHealthState;
+
+void printTaskStackDiagnostics() {
+  static unsigned long lastDiag = 0;
+  if (millis() - lastDiag > 10000) {
+    lastDiag = millis();
+    Serial.println("\n========== FreeRTOS Task Memory Diagnostics ==========");
+    if (hTaskSensors) {
+      UBaseType_t hwmSensors = uxTaskGetStackHighWaterMark(hTaskSensors);
+      Serial.printf(" [TaskSensors] Free Stack: %u words (%u bytes)\n",
+                    (unsigned int)hwmSensors, (unsigned int)(hwmSensors * sizeof(StackType_t)));
+    }
+    if (hTaskControl) {
+      UBaseType_t hwmControl = uxTaskGetStackHighWaterMark(hTaskControl);
+      Serial.printf(" [TaskControl] Free Stack: %u words (%u bytes)\n",
+                    (unsigned int)hwmControl, (unsigned int)(hwmControl * sizeof(StackType_t)));
+    }
+    if (hTaskDisplay) {
+      UBaseType_t hwmDisplay = uxTaskGetStackHighWaterMark(hTaskDisplay);
+      Serial.printf(" [TaskDisplay] Free Stack: %u words (%u bytes)\n",
+                    (unsigned int)hwmDisplay, (unsigned int)(hwmDisplay * sizeof(StackType_t)));
+    }
+    Serial.printf(" [System] Total Heap Free: %u bytes\n", (unsigned int)ESP.getFreeHeap());
+    Serial.println("======================================================\n");
+  }
+}
 
 void handleManualMode() {
   static unsigned long lastLog = 0;
@@ -152,6 +182,9 @@ void vTaskControl(void* pvParameters) {
     // F. Execute automatic/manual control updates
     greenhouseController.update(isAutoMode, readingsCopy, healthState);
 
+    // G. Run periodic task memory diagnostics
+    printTaskStackDiagnostics();
+
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
   }
 }
@@ -218,10 +251,10 @@ void setup() {
   displayManager.init();
   Serial.println("Greenhouse Controller Hardware Ready. Creating FreeRTOS Tasks...");
 
-  // Create FreeRTOS Tasks
-  xTaskCreatePinnedToCore(vTaskSensors, "TaskSensors", 4096, NULL, 2, NULL, 1);
-  xTaskCreatePinnedToCore(vTaskControl, "TaskControl", 4096, NULL, 3, NULL, 1);
-  xTaskCreatePinnedToCore(vTaskDisplay, "TaskDisplay", 4096, NULL, 1, NULL, 0);
+  // Create FreeRTOS Tasks & Save Handles for Memory Diagnostics
+  xTaskCreatePinnedToCore(vTaskSensors, "TaskSensors", 4096, NULL, 2, &hTaskSensors, 1);
+  xTaskCreatePinnedToCore(vTaskControl, "TaskControl", 4096, NULL, 3, &hTaskControl, 1);
+  xTaskCreatePinnedToCore(vTaskDisplay, "TaskDisplay", 4096, NULL, 1, &hTaskDisplay, 0);
 
   Serial.println("FreeRTOS Tasks & Hardware ISRs Started Successfully.");
 }
