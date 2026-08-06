@@ -50,6 +50,10 @@ typedef uint32_t BaseType_t;
 
 inline int digitalPinToInterrupt(int pin) { return pin; }
 inline void attachInterruptArg(int pin, void (*isr)(void*), void* arg, int mode) { (void)pin; (void)isr; (void)arg; (void)mode; }
+inline BaseType_t xQueueSendFromISR(QueueHandle_t q, const void* item, BaseType_t* pxHigherPriorityTaskWoken) {
+    (void)q; (void)item; if (pxHigherPriorityTaskWoken) *pxHigherPriorityTaskWoken = pdFALSE; return pdTRUE;
+}
+inline void portYIELD_FROM_ISR() {}
 
 struct MockArduinoState {
     std::map<int, int> pinModes;

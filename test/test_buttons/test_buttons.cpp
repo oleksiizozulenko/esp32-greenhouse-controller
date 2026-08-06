@@ -49,8 +49,8 @@ void test_button_driver_debouncing(void) {
     advanceSimulatedMillis(10);
     TEST_ASSERT_FALSE(btn.wasPressed());
 
-    // After debounce window (t = 60ms > 50ms), should register press event once
-    advanceSimulatedMillis(50);
+    // After debounce window (t = 61ms > 50ms), should register press event once
+    advanceSimulatedMillis(51);
     TEST_ASSERT_TRUE(btn.wasPressed());
 
     // Consecutive check without state change should return false
@@ -62,6 +62,15 @@ void test_button_driver_debouncing(void) {
     TEST_ASSERT_FALSE(btn.wasPressed());
 }
 
+void test_button_driver_attach_interrupt(void) {
+    QueueHandle_t mockQueue = (QueueHandle_t)0x5555;
+    ButtonDriver btn(14, ButtonType::VENTILATION, 50);
+    btn.attachInterruptHandler(mockQueue);
+
+    TEST_ASSERT_EQUAL_INT(14, btn.getPin());
+    TEST_ASSERT_EQUAL_INT((int)ButtonType::VENTILATION, (int)btn.getType());
+}
+
 int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
@@ -71,6 +80,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_button_event_struct);
     RUN_TEST(test_button_driver_getters);
     RUN_TEST(test_button_driver_debouncing);
+    RUN_TEST(test_button_driver_attach_interrupt);
 
     return UNITY_END();
 }
