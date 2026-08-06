@@ -81,7 +81,7 @@ inline SystemMode toggleSystemMode(SystemMode currentMode) {
 
 // Sensor Error Thresholds
 #define SENSOR_TEMP_MIN_ERROR     -5.0f      // Temperature < -5°C -> Sensor Error
-#define SENSOR_TEMP_MAX_ERROR     60.0f      // Temperature > 60°C -> Sensor Error
+#define SENSOR_TEMP_MAX_ERROR     80.0f      // Temperature > 80°C -> Sensor Error
 #define SENSOR_HUMIDITY_MIN_ERROR 0.0f       // Humidity < 0% -> Sensor Error
 #define SENSOR_HUMIDITY_MAX_ERROR 90.0f      // Humidity > 90% -> Sensor Error
 #define SENSOR_SOIL_MIN_ERROR     0.0f       // Soil moisture < 0% -> Sensor Error
@@ -91,7 +91,7 @@ inline SystemMode toggleSystemMode(SystemMode currentMode) {
 
 // Critical Emergency Thresholds
 #define CRITICAL_LIGHT_HIGH       10000.0f   // Critical high light (>10000 lx)
-#define CRITICAL_TEMP_HIGH        45.0f      // Critical high temperature (>45°C)
+#define CRITICAL_TEMP_HIGH        50.0f      // Critical high temperature (>50°C)
 #define CRITICAL_TEMP_LOW         5.0f       // Freezing temperature (<5°C)
 #define CRITICAL_HUMIDITY_HIGH    85.0f      // Critical high humidity (>85%)
 #define CRITICAL_SOIL_HIGH        85.0f      // Overwatering (>85%)
