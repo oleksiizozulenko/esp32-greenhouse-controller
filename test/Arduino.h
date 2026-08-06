@@ -32,6 +32,25 @@
 #define DHT22 22
 #endif
 
+typedef void* QueueHandle_t;
+typedef void* SemaphoreHandle_t;
+typedef uint32_t BaseType_t;
+#ifndef pdTRUE
+#define pdTRUE 1
+#endif
+#ifndef pdFALSE
+#define pdFALSE 0
+#endif
+#ifndef IRAM_ATTR
+#define IRAM_ATTR
+#endif
+#ifndef FALLING
+#define FALLING 0x2
+#endif
+
+inline int digitalPinToInterrupt(int pin) { return pin; }
+inline void attachInterruptArg(int pin, void (*isr)(void*), void* arg, int mode) { (void)pin; (void)isr; (void)arg; (void)mode; }
+
 struct MockArduinoState {
     std::map<int, int> pinModes;
     std::map<int, int> pinValues;
