@@ -9,11 +9,13 @@ class TemperatureSensor : public Sensor {
 private:
     DHT* dht;
     bool isExternalDht;
-    float lastTemperature;
+    float lastValidTemperature;
+    unsigned long lastValidTime;
 
 public:
-    TemperatureSensor(int pin, DHT* externalDht = nullptr, uint8_t dhtType = DHT_TYPE) 
-        : Sensor(pin, "Temperature"), dht(nullptr), isExternalDht(false), lastTemperature(NAN) {
+    TemperatureSensor(int pin, DHT* externalDht = nullptr, uint8_t dhtType = DHT_TYPE)
+        : Sensor(pin, SensorType::TEMPERATURE, "Temperature"), dht(nullptr), isExternalDht(false),
+          lastValidTemperature(NAN), lastValidTime(0) {
         if (externalDht != nullptr) {
             dht = externalDht;
             isExternalDht = true;
@@ -39,22 +41,31 @@ public:
 
     SensorData read() override {
         unsigned long currentTime = millis();
-        if (currentTime - lastReadTime < readInterval && !isnan(lastTemperature)) {
-            bool isErr = isnan(lastTemperature) || (lastTemperature < SENSOR_TEMP_MIN_ERROR);
-            return {lastTemperature, isErr};
+        if (currentTime - lastReadTime < readInterval && !isnan(lastValidTemperature)) {
+            bool isErr = isnan(lastValidTemperature) || (lastValidTemperature < SENSOR_TEMP_MIN_ERROR) || (lastValidTemperature > SENSOR_TEMP_MAX_ERROR);
+            return {lastValidTemperature, isErr};
         }
 
         lastReadTime = currentTime;
 
-        float temperature = dht ? dht->readTemperature() : NAN;
-
-        if (isnan(temperature) || temperature < SENSOR_TEMP_MIN_ERROR) {
-            lastTemperature = temperature;
-            return {temperature, true};
-        } else {
-            lastTemperature = temperature;
-            return {temperature, false};
+        float temp = NAN;
+        for (uint8_t attempt = 0; attempt < DIGITAL_SENSOR_MAX_RETRIES; ++attempt) {
+            temp = dht ? dht->readTemperature() : NAN;
+            if (!isnan(temp)) {
+                lastValidTemperature = temp;
+                lastValidTime = currentTime;
+                return {temp, false};
+            }
+            if (attempt < DIGITAL_SENSOR_MAX_RETRIES - 1) {
+                delay(DIGITAL_SENSOR_RETRY_DELAY_MS);
+            }
         }
+
+        if (!isnan(lastValidTemperature) && (currentTime - lastValidTime <= DIGITAL_SENSOR_FALLBACK_TIMEOUT)) {
+            return {lastValidTemperature, false};
+        }
+
+        return {temp, true};
     }
 
     const char* getUnit() const override {

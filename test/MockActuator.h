@@ -12,7 +12,10 @@ private:
 
 public:
     MockActuator(int pin, const char* name)
-        : Actuator(pin, name), state(false), turnOnCalls(0), turnOffCalls(0), initCalls(0) {}
+        : Actuator(pin, ActuatorType::UNKNOWN, name), state(false), turnOnCalls(0), turnOffCalls(0), initCalls(0) {}
+
+    MockActuator(int pin, ActuatorType type, const char* name)
+        : Actuator(pin, type, name), state(false), turnOnCalls(0), turnOffCalls(0), initCalls(0) {}
 
     void init() override {
         initCalls++;

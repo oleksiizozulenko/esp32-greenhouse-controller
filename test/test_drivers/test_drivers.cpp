@@ -28,7 +28,7 @@ void test_adc_conversions(void) {
 
 void test_actuator_status_text(void) {
     MockActuator act(5, "TestActuator");
-    
+
     TEST_ASSERT_FALSE(act.isOn());
     TEST_ASSERT_EQUAL_STRING("OFF", act.getStatusText());
 
@@ -49,21 +49,21 @@ void test_dht_temperature_sensor(void) {
     TEST_ASSERT_EQUAL_STRING("C", tempSensor.getUnit());
 }
 
-void test_dht_temperature_sensor_error_below_min(void) {
+void test_dht_temperature_sensor_out_of_range_is_not_driver_error(void) {
     DHT dht(19, DHT22);
-    dht.setTemperature(-6.0f); // Below -5.0°C threshold -> Error
+    dht.setTemperature(-6.0f);
     TemperatureSensor tempSensor(19, &dht);
     tempSensor.init();
 
     SensorData data = tempSensor.read();
-    TEST_ASSERT_TRUE(data.isError);
+    TEST_ASSERT_FALSE(data.isError);
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, -6.0f, data.value);
 
-    // -5.0°C should be valid (not < -5.0)
     dht.setTemperature(-5.0f);
-    // Reset interval timer to force re-read
     delay(2001);
     data = tempSensor.read();
     TEST_ASSERT_FALSE(data.isError);
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, -5.0f, data.value);
 }
 
 void test_dht_humidity_sensor(void) {
@@ -78,36 +78,55 @@ void test_dht_humidity_sensor(void) {
     TEST_ASSERT_EQUAL_STRING("%", humSensor.getUnit());
 }
 
-void test_dht_humidity_sensor_error_above_max(void) {
+void test_dht_humidity_sensor_out_of_range_is_not_driver_error(void) {
     DHT dht(19, DHT22);
-    dht.setHumidity(91.5f); // > 90% threshold -> Error
+    dht.setHumidity(91.5f);
     HumiditySensor humSensor(19, &dht);
     humSensor.init();
 
     SensorData data = humSensor.read();
-    TEST_ASSERT_TRUE(data.isError);
+    TEST_ASSERT_FALSE(data.isError);
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 91.5f, data.value);
 
-    // 90.0% should be valid (<= 90% threshold)
     dht.setHumidity(90.0f);
     delay(2500);
     data = humSensor.read();
     TEST_ASSERT_FALSE(data.isError);
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 90.0f, data.value);
 }
 
-void test_light_sensor_error_at_max_value(void) {
+void test_light_sensor_adc_to_lux_conversion(void) {
     LightSensor lightSensor(35);
     lightSensor.init();
 
-    // 4095 ADC -> 100.0% (Max saturation value) -> Error
-    setMockAnalogRead(35, 4095);
-    SensorData data = lightSensor.read();
-    TEST_ASSERT_TRUE(data.isError);
+    TEST_ASSERT_EQUAL_STRING("lx", lightSensor.getUnit());
 
-    // 2047 ADC -> ~50% -> Normal operation
-    setMockAnalogRead(35, 2047);
-    delay(2001);
-    data = lightSensor.read();
-    TEST_ASSERT_FALSE(data.isError);
+    // 0 ADC -> 100000.0 lx (bright daylight / full sun)
+    setMockAnalogRead(35, 0);
+    SensorData d100000 = lightSensor.read();
+    TEST_ASSERT_FALSE(d100000.isError);
+    TEST_ASSERT_FLOAT_WITHIN(1.0f, 100000.0f, d100000.value);
+
+    // 2045 ADC -> ~100 lx
+    setMockAnalogRead(35, 2045);
+    advanceSimulatedMillis(2001);
+    SensorData d100 = lightSensor.read();
+    TEST_ASSERT_FALSE(d100.isError);
+    TEST_ASSERT_FLOAT_WITHIN(15.0f, 100.0f, d100.value);
+
+    // 1124 ADC -> ~400 lx
+    setMockAnalogRead(35, 1124);
+    advanceSimulatedMillis(2001);
+    SensorData d400 = lightSensor.read();
+    TEST_ASSERT_FALSE(d400.isError);
+    TEST_ASSERT_FLOAT_WITHIN(30.0f, 400.0f, d400.value);
+
+    // 157 ADC -> ~10000 lx
+    setMockAnalogRead(35, 157);
+    advanceSimulatedMillis(2001);
+    SensorData d10000 = lightSensor.read();
+    TEST_ASSERT_FALSE(d10000.isError);
+    TEST_ASSERT_FLOAT_WITHIN(800.0f, 10000.0f, d10000.value);
 }
 
 int main(int argc, char **argv) {
@@ -118,10 +137,10 @@ int main(int argc, char **argv) {
     RUN_TEST(test_adc_conversions);
     RUN_TEST(test_actuator_status_text);
     RUN_TEST(test_dht_temperature_sensor);
-    RUN_TEST(test_dht_temperature_sensor_error_below_min);
+    RUN_TEST(test_dht_temperature_sensor_out_of_range_is_not_driver_error);
     RUN_TEST(test_dht_humidity_sensor);
-    RUN_TEST(test_dht_humidity_sensor_error_above_max);
-    RUN_TEST(test_light_sensor_error_at_max_value);
+    RUN_TEST(test_dht_humidity_sensor_out_of_range_is_not_driver_error);
+    RUN_TEST(test_light_sensor_adc_to_lux_conversion);
 
     return UNITY_END();
 }

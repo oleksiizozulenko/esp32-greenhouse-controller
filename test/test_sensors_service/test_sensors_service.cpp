@@ -1,7 +1,28 @@
 #include <unity.h>
+#include <cstdlib>
 #include "../Arduino.h"
 #include "../MockSensor.h"
 #include "../../include/services/SensorsService.h"
+
+static size_t gAllocationCount = 0;
+
+void* operator new(std::size_t size) {
+    ++gAllocationCount;
+    return std::malloc(size);
+}
+
+void operator delete(void* ptr) noexcept {
+    std::free(ptr);
+}
+
+void* operator new[](std::size_t size) {
+    ++gAllocationCount;
+    return std::malloc(size);
+}
+
+void operator delete[](void* ptr) noexcept {
+    std::free(ptr);
+}
 
 static SensorsService* sensorsService;
 static MockSensor* tempSensor;
@@ -10,12 +31,12 @@ static MockSensor* lightSensor;
 
 void setUp(void) {
     resetMockArduinoState();
-    
+
     sensorsService = new SensorsService(2, 2000);
 
-    tempSensor = new MockSensor(PIN_TEMP, "Temperature", "°C");
-    soilSensor = new MockSensor(PIN_SOIL_POT, "Soil", "%");
-    lightSensor = new MockSensor(PIN_LDR, "Light", "lux");
+    tempSensor = new MockSensor(PIN_TEMP, SensorType::TEMPERATURE, "Temperature", "°C");
+    soilSensor = new MockSensor(PIN_SOIL_POT, SensorType::SOIL, "Soil", "%");
+    lightSensor = new MockSensor(PIN_LDR, SensorType::LIGHT, "Light", "lux");
 
     sensorsService->addSensor(tempSensor);
     sensorsService->addSensor(soilSensor);
@@ -59,15 +80,15 @@ void test_sensor_data_map_read_all(void) {
 
     TEST_ASSERT_EQUAL_UINT(3, readings.size());
 
-    SensorData tData = readings.get("Temperature");
+    SensorData tData = readings.get(SensorType::TEMPERATURE);
     TEST_ASSERT_FALSE(tData.isError);
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 25.5f, tData.value);
 
-    SensorData sData = readings.get("Soil");
+    SensorData sData = readings.get(SensorType::SOIL);
     TEST_ASSERT_FALSE(sData.isError);
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 45.0f, sData.value);
 
-    SensorData lData = readings.get("Light");
+    SensorData lData = readings.get(SensorType::LIGHT);
     TEST_ASSERT_FALSE(lData.isError);
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 750.0f, lData.value);
 }
@@ -81,14 +102,23 @@ void test_sensor_data_map_lookup_by_pointer(void) {
     TEST_ASSERT_FLOAT_WITHIN(0.01f, 22.0f, data.value);
 }
 
+void test_sensor_reads_do_not_allocate_during_loop_path(void) {
+    tempSensor->setData(20.0f, false);
+    soilSensor->setData(40.0f, false);
+    lightSensor->setData(700.0f, false);
+
+    gAllocationCount = 0;
+    SensorDataMap readings = sensorsService->read();
+
+    TEST_ASSERT_EQUAL_UINT(3, readings.size());
+    TEST_ASSERT_EQUAL_UINT(0, gAllocationCount);
+}
+
 void test_sensor_data_map_non_existent_key(void) {
     SensorDataMap readings = sensorsService->readAll();
 
-    SensorData data = readings.get("UnknownKey");
+    SensorData data = readings.get(SensorType::UNKNOWN);
     TEST_ASSERT_TRUE(data.isError);
-
-    SensorData nullPtrData = readings.get(static_cast<const char*>(nullptr));
-    TEST_ASSERT_TRUE(nullPtrData.isError);
 }
 
 // ----------------------------------------------------
@@ -102,7 +132,7 @@ void test_sensor_data_map_copy_constructor(void) {
     SensorDataMap copy(original);
 
     TEST_ASSERT_EQUAL_UINT(original.size(), copy.size());
-    TEST_ASSERT_FLOAT_WITHIN(0.01f, 18.5f, copy.get("Temperature").value);
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 18.5f, copy.get(SensorType::TEMPERATURE).value);
 }
 
 void test_sensor_data_map_copy_assignment(void) {
@@ -113,7 +143,7 @@ void test_sensor_data_map_copy_assignment(void) {
     assigned = original;
 
     TEST_ASSERT_EQUAL_UINT(original.size(), assigned.size());
-    TEST_ASSERT_FLOAT_WITHIN(0.01f, 19.5f, assigned.get("Temperature").value);
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 19.5f, assigned.get(SensorType::TEMPERATURE).value);
 }
 
 void test_sensor_data_map_move_semantics(void) {
@@ -123,7 +153,7 @@ void test_sensor_data_map_move_semantics(void) {
     SensorDataMap moved(std::move(original));
 
     TEST_ASSERT_EQUAL_UINT(3, moved.size());
-    TEST_ASSERT_FLOAT_WITHIN(0.01f, 31.0f, moved.get("Temperature").value);
+    TEST_ASSERT_FLOAT_WITHIN(0.01f, 31.0f, moved.get(SensorType::TEMPERATURE).value);
     TEST_ASSERT_EQUAL_UINT(0, original.size()); // original was moved
 }
 
@@ -137,6 +167,7 @@ int main(int argc, char **argv) {
 
     RUN_TEST(test_sensor_data_map_read_all);
     RUN_TEST(test_sensor_data_map_lookup_by_pointer);
+    RUN_TEST(test_sensor_reads_do_not_allocate_during_loop_path);
     RUN_TEST(test_sensor_data_map_non_existent_key);
 
     RUN_TEST(test_sensor_data_map_copy_constructor);

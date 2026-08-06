@@ -28,7 +28,7 @@ The **ESP32 Smart Greenhouse Controller** continuously monitors critical environ
 
 ### Key Features:
 - **Autonomous Climate Control**: Automatic triggering of ventilation, irrigation, and supplemental lighting based on customizable thresholds with hysteresis prevention.
-- **Manual Override Mode**: Full manual control over individual actuators using dedicated push-buttons.
+- **Manual Override Mode**: Advisory-only safety policy in manual mode; critical hazards still raise alarms while the operator retains full manual actuator control using dedicated push-buttons.
 - **Diagnostics & Safety**: Dual LED indicators (`LED_GREEN` for nominal operation, `LED_RED` for sensor errors) and acoustic alerts (`Buzzer`) for emergency states.
 - **Visual Feedback**: Real-time sensor metrics and status displayed on an I2C OLED display (SSD1306) managed by [DisplayManager](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/include/services/DisplayManager.h).
 - **Extensible Architecture**: Modular driver abstraction designed for easy integration of additional sensors, relays, and wireless telemetry interfaces.
@@ -86,8 +86,8 @@ src/
 include/
 ├── config.h                        # Pin definitions, thresholds & system constants
 ├── drivers/
-│   ├── Sensor.h                    # Base polymorphic interface for sensors
-│   ├── Actuator.h                  # Base polymorphic interface for actuators
+│   ├── Sensor.h                    # Base polymorphic interface for sensors with typed SensorType identity
+│   ├── Actuator.h                  # Base polymorphic interface for actuators with typed ActuatorType identity
 │   ├── ButtonDriver.h              # Hardware debouncing & state detection driver
 │   ├── HumiditySensor.h            # DHT22 humidity sensor implementation
 │   ├── TemperatureSensor.h         # DHT22 temperature sensor implementation
@@ -103,8 +103,9 @@ include/
 ```
 
 ### Core Services:
-- **[SensorsService](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/include/services/SensorsService.h)**: Polling manager that samples registered sensors periodically (`SENSOR_READ_INTERVAL`), validates readings, and packages them into a centralized telemetry map (`SensorDataMap`).
-- **[AutomationService](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/include/services/AutomationService.h)**: Evaluates sensor readings against configured threshold boundaries in Automatic Mode, handles manual push-button state changes in Manual Mode, and drives safety indicators (`LED_GREEN`, `LED_RED`, `Buzzer`).
+- **[SensorsService](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/include/services/SensorsService.h)**: Polling manager that samples registered sensors periodically (`SENSOR_READ_INTERVAL`), packages values into a centralized `SensorDataMap`, and uses fixed inline storage for zero loop-time heap churn.
+- **[SafetyMonitorService](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/include/services/SafetyMonitorService.h)**: Evaluates typed `SensorType` readings against domain thresholds and produces `SystemHealthState` for advisory/alarm handling.
+- **[GreenhouseController](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/include/GreenhouseController.h)**: Drives automatic actuator logic or manual button toggles using typed `ActuatorType` identity, with a sticky debounced mode button switching between `MANUAL` and `AUTOMATIC`.
 - **[DisplayManager](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/include/services/DisplayManager.h)**: Renders live metrics, current active mode, and error banners on the 128x64 SSD1306 OLED screen.
 
 ---
@@ -131,13 +132,15 @@ To prevent rapid relay switching or servo chatter when sensor readings hover nea
 
 System mode is determined by the state of the Mode Button (`PIN_BTN_MODE`):
 
-- **Automatic Mode (`MODE_AUTOMATIC`)**:
-  - The [AutomationService](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/include/services/AutomationService.h) autonomously controls ventilation, irrigation, and lighting based on sensor data.
+- **Automatic Mode (`SystemMode::AUTOMATIC`)**:
+  - The [GreenhouseController](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/include/GreenhouseController.h) autonomously controls ventilation, irrigation, and lighting based on typed sensor readings.
   - High-temperature or dry-soil warnings trigger the acoustic alert (`Buzzer`).
 
-- **Manual Mode (`MODE_MANUAL`)**:
+- **Manual Mode (`SystemMode::MANUAL`)**:
   - Automatic threshold triggers are bypassed.
   - Users can manually toggle irrigation, ventilation, and lighting on/off using the dedicated hardware push-buttons (`PIN_BTN_IRRIG`, `PIN_BTN_VENT`, `PIN_BTN_LIGHT`).
+  - Critical hazards remain advisory/alarm-only in manual mode while the operator keeps direct actuator control.
+  - The mode push-button uses sticky debounced toggling so each press flips between manual and automatic state.
 
 ---
 

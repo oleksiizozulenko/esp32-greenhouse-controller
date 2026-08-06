@@ -2,6 +2,7 @@
 #define LIGHT_SENSOR_H
 
 #include <Arduino.h>
+#include <math.h>
 #include "Sensor.h"
 
 class LightSensor : public Sensor {
@@ -9,8 +10,8 @@ private:
     float lastLightLevel;
 
 public:
-    LightSensor(int pin) 
-        : Sensor(pin, "Light"), lastLightLevel(NAN) {}
+    LightSensor(int pin)
+        : Sensor(pin, SensorType::LIGHT, "Light"), lastLightLevel(NAN) {}
 
     void init() override {
         pinMode(pin, INPUT);
@@ -19,25 +20,36 @@ public:
     SensorData read() override {
         unsigned long currentTime = millis();
         if (currentTime - lastReadTime < readInterval && !isnan(lastLightLevel)) {
-            bool isErr = isnan(lastLightLevel) || (lastLightLevel >= SENSOR_LIGHT_MAX_ERROR);
+            bool isErr = !isfinite(lastLightLevel);
             return {lastLightLevel, isErr};
         }
 
         lastReadTime = currentTime;
 
-        float lightLevel = adcToPercentage(analogRead(pin));
+        int rawAdc = analogRead(pin);
+        if (rawAdc <= 0) {
+            lastLightLevel = 100000.0f;
+            return {100000.0f, false};
+        }
 
-        if (isnan(lightLevel) || lightLevel >= SENSOR_LIGHT_MAX_ERROR) {
-            lastLightLevel = lightLevel;
-            return {lightLevel, true};
+        if (rawAdc >= static_cast<int>(ADC_MAX_VALUE)) {
+            rawAdc = static_cast<int>(ADC_MAX_VALUE) - 1;
+        }
+
+        float ldrResistance = 10000.0f * (static_cast<float>(rawAdc) / (ADC_MAX_VALUE - static_cast<float>(rawAdc)));
+        float lux = pow((50000.0f * pow(10.0f, 0.7f)) / ldrResistance, (1.0f / 0.7f));
+
+        if (!isfinite(lux)) {
+            lastLightLevel = 0.0f;
+            return {0.0f, true};
         } else {
-            lastLightLevel = lightLevel;
-            return {lightLevel, false};
+            lastLightLevel = lux;
+            return {lux, false};
         }
     }
 
     const char* getUnit() const override {
-        return "";
+        return "lx";
     }
 };
 

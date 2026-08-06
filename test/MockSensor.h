@@ -11,8 +11,8 @@ private:
     int readCalls;
 
 public:
-    MockSensor(int pin, const char* name, const char* unit = "units", unsigned long readInterval = 2000)
-        : Sensor(pin, name, readInterval), currentData({0.0f, false}), unit(unit), initCalls(0), readCalls(0) {}
+    MockSensor(int pin, SensorType type, const char* name, const char* unit = "units", unsigned long readInterval = 2000)
+        : Sensor(pin, type, name, readInterval), currentData({0.0f, false}), unit(unit), initCalls(0), readCalls(0) {}
 
     void init() override {
         initCalls++;
