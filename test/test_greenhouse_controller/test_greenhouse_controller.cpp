@@ -324,9 +324,13 @@ void test_mode_toggle_is_sticky(void) {
 }
 
 void test_manual_mode_button_toggles(void) {
-    ButtonDriver btnIrrig(PIN_BTN_IRRIG);
-    ButtonDriver btnVent(PIN_BTN_VENT);
-    ButtonDriver btnLight(PIN_BTN_LIGHT);
+    ButtonDriver btnIrrig(PIN_BTN_IRRIG, ButtonType::IRRIGATION);
+    ButtonDriver btnVent(PIN_BTN_VENT, ButtonType::VENTILATION);
+    ButtonDriver btnLight(PIN_BTN_LIGHT, ButtonType::LIGHT);
+
+    btnIrrig.setListener(automation);
+    btnVent.setListener(automation);
+    btnLight.setListener(automation);
 
     SensorDataMap readings(0);
 
@@ -337,7 +341,8 @@ void test_manual_mode_button_toggles(void) {
 
     // --- Irrigation Button Press 1 (Turn ON) ---
     pressButton(btnIrrig, PIN_BTN_IRRIG);
-    automation->update(false, readings, &btnIrrig, &btnVent, &btnLight);
+    btnIrrig.checkEvent();
+    automation->update(false, readings);
     TEST_ASSERT_TRUE(irrigActuator->isOn());
 
     // Irrigation Button Release
@@ -345,7 +350,8 @@ void test_manual_mode_button_toggles(void) {
 
     // --- Irrigation Button Press 2 (Turn OFF) ---
     pressButton(btnIrrig, PIN_BTN_IRRIG);
-    automation->update(false, readings, &btnIrrig, &btnVent, &btnLight);
+    btnIrrig.checkEvent();
+    automation->update(false, readings);
     TEST_ASSERT_FALSE(irrigActuator->isOn());
 
     // Irrigation Button Release
@@ -353,17 +359,20 @@ void test_manual_mode_button_toggles(void) {
 
     // --- Ventilation Button Press (Turn ON) ---
     pressButton(btnVent, PIN_BTN_VENT);
-    automation->update(false, readings, &btnIrrig, &btnVent, &btnLight);
+    btnVent.checkEvent();
+    automation->update(false, readings);
     TEST_ASSERT_TRUE(ventActuator->isOn());
 
     // --- Light Button Press (Turn ON) ---
     pressButton(btnLight, PIN_BTN_LIGHT);
-    automation->update(false, readings, &btnIrrig, &btnVent, &btnLight);
+    btnLight.checkEvent();
+    automation->update(false, readings);
     TEST_ASSERT_TRUE(lightActuator->isOn());
 }
 
 void test_manual_mode_button_override_under_critical_hazard(void) {
-    ButtonDriver btnVent(PIN_BTN_VENT);
+    ButtonDriver btnVent(PIN_BTN_VENT, ButtonType::VENTILATION);
+    btnVent.setListener(automation);
 
     // Temp is 59°C (> 45°C critical overheat)
     tempSensor->setData(59.0f, false);
@@ -372,21 +381,27 @@ void test_manual_mode_button_override_under_critical_hazard(void) {
 
     // In MANUAL mode, user presses ventilation button -> MUST open ventilation unconditionally
     pressButton(btnVent, PIN_BTN_VENT);
-    automation->update(false, readings, nullptr, &btnVent, nullptr);
+    btnVent.checkEvent();
+    automation->update(false, readings);
     TEST_ASSERT_TRUE(ventActuator->isOn());
 
     releaseButton(btnVent, PIN_BTN_VENT);
 
     // User presses ventilation button again -> MUST close ventilation unconditionally
     pressButton(btnVent, PIN_BTN_VENT);
-    automation->update(false, readings, nullptr, &btnVent, nullptr);
+    btnVent.checkEvent();
+    automation->update(false, readings);
     TEST_ASSERT_FALSE(ventActuator->isOn());
 }
 
-void test_auto_mode_ignores_manual_buttons(void) {
-    ButtonDriver btnVent(PIN_BTN_VENT);
-    ButtonDriver btnIrrig(PIN_BTN_IRRIG);
-    ButtonDriver btnLight(PIN_BTN_LIGHT);
+void test_auto_mode_supports_manual_button_overrides(void) {
+    ButtonDriver btnVent(PIN_BTN_VENT, ButtonType::VENTILATION);
+    ButtonDriver btnIrrig(PIN_BTN_IRRIG, ButtonType::IRRIGATION);
+    ButtonDriver btnLight(PIN_BTN_LIGHT, ButtonType::LIGHT);
+
+    btnVent.setListener(automation);
+    btnIrrig.setListener(automation);
+    btnLight.setListener(automation);
 
     // Normal safe sensor readings in AUTO mode
     tempSensor->setData(22.0f, false);
@@ -398,23 +413,27 @@ void test_auto_mode_ignores_manual_buttons(void) {
     readings[1] = {soilSensor, soilSensor->read()};
     readings[2] = {lightSensor, lightSensor->read()};
 
-    // User presses buttons during AUTO mode
+    automation->update(true, readings);
+
+    // User presses buttons during AUTO mode to override actuator states
     pressButton(btnVent, PIN_BTN_VENT);
     pressButton(btnIrrig, PIN_BTN_IRRIG);
     pressButton(btnLight, PIN_BTN_LIGHT);
 
-    automation->update(true, readings, &btnIrrig, &btnVent, &btnLight);
+    btnVent.checkEvent();
+    btnIrrig.checkEvent();
+    btnLight.checkEvent();
 
-    // In AUTO mode, manual button presses MUST NOT turn actuators ON
-    TEST_ASSERT_FALSE(ventActuator->isOn());
-    TEST_ASSERT_FALSE(irrigActuator->isOn());
-    TEST_ASSERT_FALSE(lightActuator->isOn());
+    // In AUTO mode, user button presses enable actuators as manual overrides
+    TEST_ASSERT_TRUE(ventActuator->isOn());
+    TEST_ASSERT_TRUE(irrigActuator->isOn());
+    TEST_ASSERT_TRUE(lightActuator->isOn());
 }
 
 void test_manual_mode_null_drivers_safety(void) {
     SensorDataMap readings(0);
-    // Should execute safely without crash when null pointers passed
-    automation->update(false, readings, nullptr, nullptr, nullptr);
+    // Should execute safely without crash when zero button arguments passed
+    automation->update(false, readings);
     TEST_ASSERT_FALSE(irrigActuator->isOn());
 }
 
@@ -457,9 +476,12 @@ void test_manual_mode_critical_humidity_alert(void) {
     SensorDataMap readings(1);
     readings[0] = {&humSensor, humSensor.read()};
 
-    automation->update(false, readings);
+    SafetyMonitorService monitor;
+    SystemHealthState state = monitor.evaluate(readings, false);
 
-    TEST_ASSERT_EQUAL_UINT(1000, getMockBuzzerTone(PIN_BUZZER));
+    TEST_ASSERT_TRUE(state.hasOperatorAdvisory);
+    TEST_ASSERT_FALSE(state.requiresAlarm); // High humidity is operator advisory banner
+    TEST_ASSERT_EQUAL_STRING("HUMID HIGH! Press VENT", state.advisoryMsg);
 }
 
 void test_manual_mode_safe_sensors_no_alert(void) {
@@ -656,7 +678,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_mode_toggle_is_sticky);
     RUN_TEST(test_manual_mode_button_toggles);
     RUN_TEST(test_manual_mode_button_override_under_critical_hazard);
-    RUN_TEST(test_auto_mode_ignores_manual_buttons);
+    RUN_TEST(test_auto_mode_supports_manual_button_overrides);
     RUN_TEST(test_manual_mode_null_drivers_safety);
     RUN_TEST(test_manual_mode_critical_temp_alert);
     RUN_TEST(test_manual_mode_critical_soil_alert);

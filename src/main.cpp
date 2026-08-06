@@ -27,10 +27,11 @@ IrrigationActuator irrigActuator(PIN_ACTUATOR_IRRIG);
 LightActuator lightActuator(PIN_ACTUATOR_LIGHT);
 
 // Button Drivers
-ButtonDriver btnMode(PIN_BTN_MODE);
-ButtonDriver btnIrrig(PIN_BTN_IRRIG);
-ButtonDriver btnVent(PIN_BTN_VENT);
-ButtonDriver btnLight(PIN_BTN_LIGHT);
+// Button Drivers
+ButtonDriver btnMode(PIN_BTN_MODE, ButtonType::MODE);
+ButtonDriver btnIrrig(PIN_BTN_IRRIG, ButtonType::IRRIGATION);
+ButtonDriver btnVent(PIN_BTN_VENT, ButtonType::VENTILATION);
+ButtonDriver btnLight(PIN_BTN_LIGHT, ButtonType::LIGHT);
 
 // Services & Managers
 DisplayManager displayManager;
@@ -63,6 +64,11 @@ void setup() {
   greenhouseController.addActuator(&irrigActuator);
   greenhouseController.addActuator(&lightActuator);
   greenhouseController.begin();
+
+  // Subscribe GreenhouseController to Button Events
+  btnIrrig.setListener(&greenhouseController);
+  btnVent.setListener(&greenhouseController);
+  btnLight.setListener(&greenhouseController);
 
   // Initialize Buttons
   btnMode.init();
@@ -101,25 +107,30 @@ void handleAutomaticMode(const SensorDataMap& readings) {
 }
 
 void loop() {
-  // 1. Read all sensors
+  // 1. Poll button events for event listener notifications
+  btnIrrig.checkEvent();
+  btnVent.checkEvent();
+  btnLight.checkEvent();
+
+  // 2. Read all sensors
   SensorDataMap readings = sensorsService.read();
 
-  // 2. Read mode button state
+  // 3. Read mode button state
   SystemMode mode = readModeButton();
   bool isAutoMode = (mode == SystemMode::AUTOMATIC);
 
-  // 3. Safety Evaluation
+  // 4. Safety Evaluation
   SystemHealthState healthState = safetyMonitorService.evaluate(readings, isAutoMode);
 
-  // 4. Process mode logging
+  // 5. Process mode logging
   if (isAutoMode) {
     handleAutomaticMode(readings);
   } else {
     handleManualMode();
   }
 
-  // 5. Update GreenhouseController (executes automation logic in AUTO, button toggles in MANUAL)
-  greenhouseController.update(isAutoMode, readings, healthState, &btnIrrig, &btnVent, &btnLight);
+  // 6. Update GreenhouseController
+  greenhouseController.update(isAutoMode, readings, healthState);
 
   // 6. Update OLED Display
   displayManager.render(greenhouseController.buildDisplayViewModel(isAutoMode, readings, healthState));

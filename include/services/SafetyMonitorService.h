@@ -107,7 +107,7 @@ public:
         // Priority 5: High Humidity (Humidity > 85%)
         if (!humData.isError && !isnan(humData.value) && humData.value > CRITICAL_HUMIDITY_HIGH) {
             state.hasOperatorAdvisory = true;
-            state.requiresAlarm = true;
+            state.requiresAlarm = false;
             snprintf(state.advisoryMsg, sizeof(state.advisoryMsg), "HUMID HIGH! Press VENT");
             return state;
         }
@@ -115,7 +115,7 @@ public:
         // Priority 6: Dry Soil (Soil < 30%)
         if (!soilData.isError && !isnan(soilData.value) && soilData.value < CRITICAL_SOIL_LOW) {
             state.hasOperatorAdvisory = true;
-            state.requiresAlarm = isAutoMode;
+            state.requiresAlarm = false;
             snprintf(state.advisoryMsg, sizeof(state.advisoryMsg), "SOIL DRY! Press IRRIG");
             return state;
         }

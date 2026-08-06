@@ -100,7 +100,7 @@
             "id": "pot1",
             "top": -446.2,
             "left": -49,
-            "attrs": { "travelLength": "30", "value": "308" }
+            "attrs": { "travelLength": "50", "value": "500" }
         },
         {
             "type": "wokwi-led",

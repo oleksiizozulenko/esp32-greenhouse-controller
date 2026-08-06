@@ -9,7 +9,7 @@
 #include "services/SensorsService.h"
 #include "services/SafetyMonitorService.h"
 
-class GreenhouseController {
+class GreenhouseController : public IButtonListener {
 private:
     Actuator** actuators;
     size_t capacity;
@@ -36,6 +36,29 @@ public:
         if (actuators != nullptr) {
             delete[] actuators;
             actuators = nullptr;
+        }
+    }
+
+    // Event Listener Callback for Physical Button Presses
+    void onButtonPressed(ButtonType button) override {
+        ActuatorType targetType = ActuatorType::UNKNOWN;
+        if (button == ButtonType::VENTILATION) {
+            targetType = ActuatorType::VENTILATION;
+        } else if (button == ButtonType::IRRIGATION) {
+            targetType = ActuatorType::IRRIGATION;
+        } else if (button == ButtonType::LIGHT) {
+            targetType = ActuatorType::LIGHT;
+        }
+
+        Actuator* act = getActuator(targetType);
+        if (act != nullptr) {
+            if (act->isOn()) {
+                Serial.printf("[EVENT] Button %d pressed -> Turning OFF %s\n", (int)button, act->getName());
+                act->turnOff();
+            } else {
+                Serial.printf("[EVENT] Button %d pressed -> Turning ON %s\n", (int)button, act->getName());
+                act->turnOn();
+            }
         }
     }
 
@@ -190,72 +213,27 @@ public:
         }
     }
 
-    void processManual(const SensorDataMap& readings, const SystemHealthState& healthState,
-                       ButtonDriver* btnIrrig = nullptr,
-                       ButtonDriver* btnVent = nullptr,
-                       ButtonDriver* btnLight = nullptr) {
-        Actuator* irrig = getActuator(ActuatorType::IRRIGATION);
-        if (btnIrrig != nullptr && btnIrrig->wasPressed() && irrig != nullptr) {
-            if (irrig->isOn()) {
-                Serial.println("[MANUAL] Irrigation Button pressed -> Turning OFF Irrigation");
-                irrig->turnOff();
-            } else {
-                Serial.println("[MANUAL] Irrigation Button pressed -> Turning ON Irrigation");
-                irrig->turnOn();
-            }
-        }
-
-        Actuator* vent = getActuator(ActuatorType::VENTILATION);
-        if (btnVent != nullptr && btnVent->wasPressed() && vent != nullptr) {
-            if (vent->isOn()) {
-                Serial.println("[MANUAL] Ventilation Button pressed -> Closing Ventilation");
-                vent->turnOff();
-            } else {
-                Serial.println("[MANUAL] Ventilation Button pressed -> Opening Ventilation");
-                vent->turnOn();
-            }
-        }
-
-        Actuator* light = getActuator(ActuatorType::LIGHT);
-        if (btnLight != nullptr && btnLight->wasPressed() && light != nullptr) {
-            if (light->isOn()) {
-                Serial.println("[MANUAL] Light Button pressed -> Turning OFF Light");
-                light->turnOff();
-            } else {
-                Serial.println("[MANUAL] Light Button pressed -> Turning ON Light");
-                light->turnOn();
-            }
-        }
-
+    void processManual(const SensorDataMap& readings, const SystemHealthState& healthState) {
         if (healthState.hasCriticalHazard || healthState.hasOperatorAdvisory) {
             Serial.printf("[MANUAL] SAFETY ALERT: %s\n", healthState.advisoryMsg);
         }
     }
 
-    void update(bool isAutoMode, const SensorDataMap& readings, const SystemHealthState& healthState,
-                ButtonDriver* btnIrrig = nullptr,
-                ButtonDriver* btnVent = nullptr,
-                ButtonDriver* btnLight = nullptr) {
+    void update(bool isAutoMode, const SensorDataMap& readings, const SystemHealthState& healthState) {
         if (isAutoMode) {
-            if (btnIrrig) btnIrrig->wasPressed();
-            if (btnVent) btnVent->wasPressed();
-            if (btnLight) btnLight->wasPressed();
             processAutomatic(readings);
         } else {
-            processManual(readings, healthState, btnIrrig, btnVent, btnLight);
+            processManual(readings, healthState);
         }
 
         // Update LED_RED (Error), LED_GREEN (Working), and Buzzer (Safety alarm)
         updateSystemIndicators(healthState);
     }
 
-    void update(bool isAutoMode, const SensorDataMap& readings,
-                ButtonDriver* btnIrrig = nullptr,
-                ButtonDriver* btnVent = nullptr,
-                ButtonDriver* btnLight = nullptr) {
+    void update(bool isAutoMode, const SensorDataMap& readings) {
         SafetyMonitorService safetyMonitor;
         SystemHealthState healthState = safetyMonitor.evaluate(readings, isAutoMode);
-        update(isAutoMode, readings, healthState, btnIrrig, btnVent, btnLight);
+        update(isAutoMode, readings, healthState);
     }
 
     DisplayViewModel buildDisplayViewModel(bool isAutoMode, const SensorDataMap& readings, const SystemHealthState& healthState) const {
