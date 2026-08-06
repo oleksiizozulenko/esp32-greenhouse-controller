@@ -71,13 +71,17 @@ inline SystemMode toggleSystemMode(SystemMode currentMode) {
 #define TEMP_THRESHOLD_HIGH   28.0f // High temperature threshold to activate ventilation (°C)
 #define TEMP_HYSTERESIS       2.0f  // Hysteresis (°C) -> turns off at (28.0 - 2.0 = 26.0°C)
 
+// Air Humidity (Ventilation)
+#define HUMIDITY_THRESHOLD_HIGH 70.0f // High air humidity threshold to activate ventilation (%)
+#define HUMIDITY_HYSTERESIS     5.0f  // Hysteresis (%) -> turns off at (70.0 - 5.0 = 65.0%)
+
 // Soil Moisture (Irrigation)
 #define SOIL_DRY_THRESHOLD    30    // Soil moisture below 30% -> turn on irrigation
 #define SOIL_HYSTERESIS       5     // Hysteresis (%) -> turn off at 35%
 
 // Light Intensity (Lux)
-#define LIGHT_DARK_THRESHOLD  500.0f   // Darkness threshold (lx)
-#define LIGHT_HYSTERESIS      50.0f    // Light hysteresis (lx)
+#define LIGHT_DARK_THRESHOLD  3000.0f  // Low light / darkness threshold (lx)
+#define LIGHT_HYSTERESIS      500.0f   // Light hysteresis (lx) -> turns off at 3500.0 lx
 
 // Sensor Error Thresholds
 #define SENSOR_TEMP_MIN_ERROR     -5.0f      // Temperature < -5°C -> Sensor Error
@@ -90,8 +94,8 @@ inline SystemMode toggleSystemMode(SystemMode currentMode) {
 #define SENSOR_LIGHT_MAX_ERROR    100000.0f  // Max lux
 
 // Critical Emergency Thresholds
-#define CRITICAL_LIGHT_HIGH       10000.0f   // Critical high light (>10000 lx)
-#define CRITICAL_TEMP_HIGH        50.0f      // Critical high temperature (>50°C)
+#define CRITICAL_LIGHT_HIGH       25000.0f   // Critical high light (>25000 lx)
+#define CRITICAL_TEMP_HIGH        45.0f      // Critical high temperature (>45°C)
 #define CRITICAL_TEMP_LOW         5.0f       // Freezing temperature (<5°C)
 #define CRITICAL_HUMIDITY_HIGH    85.0f      // Critical high humidity (>85%)
 #define CRITICAL_SOIL_HIGH        85.0f      // Overwatering (>85%)

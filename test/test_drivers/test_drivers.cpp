@@ -101,28 +101,28 @@ void test_light_sensor_adc_to_lux_conversion(void) {
 
     TEST_ASSERT_EQUAL_STRING("lx", lightSensor.getUnit());
 
-    // 0 ADC -> 0.0 lx
+    // 0 ADC -> 100000.0 lx (bright daylight / full sun)
     setMockAnalogRead(35, 0);
-    SensorData d0 = lightSensor.read();
-    TEST_ASSERT_FALSE(d0.isError);
-    TEST_ASSERT_FLOAT_WITHIN(1.0f, 0.0f, d0.value);
+    SensorData d100000 = lightSensor.read();
+    TEST_ASSERT_FALSE(d100000.isError);
+    TEST_ASSERT_FLOAT_WITHIN(1.0f, 100000.0f, d100000.value);
 
-    // 2050 ADC -> ~100 lx
-    setMockAnalogRead(35, 2050);
+    // 2045 ADC -> ~100 lx
+    setMockAnalogRead(35, 2045);
     advanceSimulatedMillis(2001);
     SensorData d100 = lightSensor.read();
     TEST_ASSERT_FALSE(d100.isError);
     TEST_ASSERT_FLOAT_WITHIN(15.0f, 100.0f, d100.value);
 
-    // 2971 ADC -> ~400 lx
-    setMockAnalogRead(35, 2971);
+    // 1124 ADC -> ~400 lx
+    setMockAnalogRead(35, 1124);
     advanceSimulatedMillis(2001);
     SensorData d400 = lightSensor.read();
     TEST_ASSERT_FALSE(d400.isError);
     TEST_ASSERT_FLOAT_WITHIN(30.0f, 400.0f, d400.value);
 
-    // 3938 ADC -> ~10000 lx
-    setMockAnalogRead(35, 3938);
+    // 157 ADC -> ~10000 lx
+    setMockAnalogRead(35, 157);
     advanceSimulatedMillis(2001);
     SensorData d10000 = lightSensor.read();
     TEST_ASSERT_FALSE(d10000.isError);

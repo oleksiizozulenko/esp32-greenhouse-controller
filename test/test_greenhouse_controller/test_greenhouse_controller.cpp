@@ -57,6 +57,8 @@ void test_actuator_registration_and_lookup(void) {
     TEST_ASSERT_NULL(automation->getActuator(99));
 }
 
+
+
 // ----------------------------------------------------
 // 2. Automatic Ventilation Control Tests
 // ----------------------------------------------------
@@ -64,7 +66,7 @@ void test_actuator_registration_and_lookup(void) {
 void test_auto_ventilation_high_temp_opens(void) {
     tempSensor->setData(29.0f, false); // > 28.0°C threshold
     soilSensor->setData(50.0f, false);
-    lightSensor->setData(600.0f, false);
+    lightSensor->setData(4000.0f, false);
 
     SensorDataMap readings(3);
     readings[0] = {tempSensor, tempSensor->read()};
@@ -75,6 +77,52 @@ void test_auto_ventilation_high_temp_opens(void) {
 
     TEST_ASSERT_TRUE(ventActuator->isOn());
     TEST_ASSERT_EQUAL_INT(1, ventActuator->getTurnOnCalls());
+}
+
+void test_auto_ventilation_high_humidity_opens(void) {
+    MockSensor humSensor(PIN_DHT, SensorType::HUMIDITY, "Humidity", "%");
+    tempSensor->setData(24.0f, false); // Normal temp (< 28°C)
+    humSensor.setData(75.0f, false);   // > 70% threshold
+
+    SensorDataMap readings(2);
+    readings[0] = {tempSensor, tempSensor->read()};
+    readings[1] = {&humSensor, humSensor.read()};
+
+    automation->update(true, readings);
+
+    TEST_ASSERT_TRUE(ventActuator->isOn());
+}
+
+void test_auto_ventilation_humidity_hysteresis_holds_open(void) {
+    MockSensor humSensor(PIN_DHT, SensorType::HUMIDITY, "Humidity", "%");
+    humSensor.setData(75.0f, false);
+    SensorDataMap readings1(1);
+    readings1[0] = {&humSensor, humSensor.read()};
+    automation->update(true, readings1);
+    TEST_ASSERT_TRUE(ventActuator->isOn());
+
+    // Drops to 67% (between 65% and 70%)
+    humSensor.setData(67.0f, false);
+    SensorDataMap readings2(1);
+    readings2[0] = {&humSensor, humSensor.read()};
+    automation->update(true, readings2);
+
+    TEST_ASSERT_TRUE(ventActuator->isOn()); // Holds open
+}
+
+void test_auto_ventilation_normal_temp_and_humidity_closes(void) {
+    MockSensor humSensor(PIN_DHT, SensorType::HUMIDITY, "Humidity", "%");
+    ventActuator->turnOn();
+
+    tempSensor->setData(25.0f, false); // < 26.0°C (28 - 2)
+    humSensor.setData(62.0f, false);   // < 65.0% (70 - 5)
+    SensorDataMap readings(2);
+    readings[0] = {tempSensor, tempSensor->read()};
+    readings[1] = {&humSensor, humSensor.read()};
+
+    automation->update(true, readings);
+
+    TEST_ASSERT_FALSE(ventActuator->isOn());
 }
 
 void test_auto_ventilation_hysteresis_holds_open(void) {
@@ -147,6 +195,16 @@ void test_auto_irrigation_dry_soil_turns_on(void) {
     TEST_ASSERT_EQUAL_INT(1, irrigActuator->getTurnOnCalls());
 }
 
+void test_auto_irrigation_high_moisture_80_does_not_turn_on(void) {
+    soilSensor->setData(80.0f, false); // High soil moisture (~80%)
+    SensorDataMap readings(1);
+    readings[0] = {soilSensor, soilSensor->read()};
+
+    automation->update(true, readings);
+
+    TEST_ASSERT_FALSE(irrigActuator->isOn());
+}
+
 void test_auto_irrigation_hysteresis_holds_on(void) {
     irrigActuator->turnOn();
 
@@ -192,7 +250,7 @@ void test_auto_irrigation_sensor_error_isolation(void) {
 // ----------------------------------------------------
 
 void test_auto_light_darkness_turns_on(void) {
-    lightSensor->setData(450.0f, false); // < 500 threshold
+    lightSensor->setData(2500.0f, false); // < 3000 lx threshold
     SensorDataMap readings(1);
     readings[0] = {lightSensor, lightSensor->read()};
 
@@ -204,8 +262,8 @@ void test_auto_light_darkness_turns_on(void) {
 void test_auto_light_hysteresis_holds_on(void) {
     lightActuator->turnOn();
 
-    // Light rises to 525 (in hysteresis zone 500 - 550)
-    lightSensor->setData(525.0f, false);
+    // Light rises to 3200 (in hysteresis zone 3000 - 3500 lx)
+    lightSensor->setData(3200.0f, false);
     SensorDataMap readings(1);
     readings[0] = {lightSensor, lightSensor->read()};
 
@@ -217,8 +275,8 @@ void test_auto_light_hysteresis_holds_on(void) {
 void test_auto_light_daylight_turns_off(void) {
     lightActuator->turnOn();
 
-    // Light rises above 550 (500 + 50)
-    lightSensor->setData(600.0f, false);
+    // Light rises above 3500 lx (3000 + 500)
+    lightSensor->setData(3600.0f, false);
     SensorDataMap readings(1);
     readings[0] = {lightSensor, lightSensor->read()};
 
@@ -241,7 +299,7 @@ void test_auto_light_sensor_error_isolation(void) {
 }
 
 // ----------------------------------------------------
-// 5. Manual Mode Control Tests
+// 5. Manual Mode Control Tests & Mode Isolation
 // ----------------------------------------------------
 
 static void pressButton(ButtonDriver& btn, int pin) {
@@ -304,6 +362,55 @@ void test_manual_mode_button_toggles(void) {
     TEST_ASSERT_TRUE(lightActuator->isOn());
 }
 
+void test_manual_mode_button_override_under_critical_hazard(void) {
+    ButtonDriver btnVent(PIN_BTN_VENT);
+
+    // Temp is 59°C (> 45°C critical overheat)
+    tempSensor->setData(59.0f, false);
+    SensorDataMap readings(1);
+    readings[0] = {tempSensor, tempSensor->read()};
+
+    // In MANUAL mode, user presses ventilation button -> MUST open ventilation unconditionally
+    pressButton(btnVent, PIN_BTN_VENT);
+    automation->update(false, readings, nullptr, &btnVent, nullptr);
+    TEST_ASSERT_TRUE(ventActuator->isOn());
+
+    releaseButton(btnVent, PIN_BTN_VENT);
+
+    // User presses ventilation button again -> MUST close ventilation unconditionally
+    pressButton(btnVent, PIN_BTN_VENT);
+    automation->update(false, readings, nullptr, &btnVent, nullptr);
+    TEST_ASSERT_FALSE(ventActuator->isOn());
+}
+
+void test_auto_mode_ignores_manual_buttons(void) {
+    ButtonDriver btnVent(PIN_BTN_VENT);
+    ButtonDriver btnIrrig(PIN_BTN_IRRIG);
+    ButtonDriver btnLight(PIN_BTN_LIGHT);
+
+    // Normal safe sensor readings in AUTO mode
+    tempSensor->setData(22.0f, false);
+    soilSensor->setData(50.0f, false);
+    lightSensor->setData(4000.0f, false);
+
+    SensorDataMap readings(3);
+    readings[0] = {tempSensor, tempSensor->read()};
+    readings[1] = {soilSensor, soilSensor->read()};
+    readings[2] = {lightSensor, lightSensor->read()};
+
+    // User presses buttons during AUTO mode
+    pressButton(btnVent, PIN_BTN_VENT);
+    pressButton(btnIrrig, PIN_BTN_IRRIG);
+    pressButton(btnLight, PIN_BTN_LIGHT);
+
+    automation->update(true, readings, &btnIrrig, &btnVent, &btnLight);
+
+    // In AUTO mode, manual button presses MUST NOT turn actuators ON
+    TEST_ASSERT_FALSE(ventActuator->isOn());
+    TEST_ASSERT_FALSE(irrigActuator->isOn());
+    TEST_ASSERT_FALSE(lightActuator->isOn());
+}
+
 void test_manual_mode_null_drivers_safety(void) {
     SensorDataMap readings(0);
     // Should execute safely without crash when null pointers passed
@@ -312,7 +419,7 @@ void test_manual_mode_null_drivers_safety(void) {
 }
 
 void test_manual_mode_critical_temp_alert(void) {
-    tempSensor->setData(65.0f, false); // > 60.0°C threshold
+    tempSensor->setData(65.0f, false); // > 45.0°C threshold
     SensorDataMap readings(1);
     readings[0] = {tempSensor, tempSensor->read()};
 
@@ -332,7 +439,7 @@ void test_manual_mode_critical_soil_alert(void) {
 }
 
 void test_manual_mode_critical_light_alert(void) {
-    lightSensor->setData(12000.0f, false); // > 10000 threshold
+    lightSensor->setData(26000.0f, false); // > 25000 lx threshold
     SensorDataMap readings(1);
     readings[0] = {lightSensor, lightSensor->read()};
 
@@ -471,15 +578,15 @@ void test_safety_exact_boundary_inclusivity(void) {
     TEST_ASSERT_TRUE(state.hasHardwareError);
     TEST_ASSERT_EQUAL_STRING("SENSOR ERROR!", state.advisoryMsg);
 
-    // 10000.0 lx -> Normal
-    lightS.setData(10000.0f, false);
+    // 25000.0 lx -> Normal
+    lightS.setData(25000.0f, false);
     advanceSimulatedMillis(2001);
     readings[0] = {&lightS, lightS.read()};
     state = monitor.evaluate(readings, true);
     TEST_ASSERT_FALSE(state.hasOperatorAdvisory);
 
-    // 10000.1 lx -> High Light Advisory
-    lightS.setData(10000.1f, false);
+    // 25000.1 lx -> High Light Advisory
+    lightS.setData(25000.1f, false);
     advanceSimulatedMillis(2001);
     readings[0] = {&lightS, lightS.read()};
     state = monitor.evaluate(readings, true);
@@ -527,12 +634,16 @@ int main(int argc, char **argv) {
     RUN_TEST(test_actuator_registration_and_lookup);
 
     RUN_TEST(test_auto_ventilation_high_temp_opens);
+    RUN_TEST(test_auto_ventilation_high_humidity_opens);
+    RUN_TEST(test_auto_ventilation_humidity_hysteresis_holds_open);
+    RUN_TEST(test_auto_ventilation_normal_temp_and_humidity_closes);
     RUN_TEST(test_auto_ventilation_hysteresis_holds_open);
     RUN_TEST(test_auto_ventilation_low_temp_closes);
     RUN_TEST(test_auto_ventilation_hysteresis_holds_closed);
     RUN_TEST(test_auto_ventilation_sensor_error_isolation);
 
     RUN_TEST(test_auto_irrigation_dry_soil_turns_on);
+    RUN_TEST(test_auto_irrigation_high_moisture_80_does_not_turn_on);
     RUN_TEST(test_auto_irrigation_hysteresis_holds_on);
     RUN_TEST(test_auto_irrigation_sufficient_moisture_turns_off);
     RUN_TEST(test_auto_irrigation_sensor_error_isolation);
@@ -544,6 +655,8 @@ int main(int argc, char **argv) {
 
     RUN_TEST(test_mode_toggle_is_sticky);
     RUN_TEST(test_manual_mode_button_toggles);
+    RUN_TEST(test_manual_mode_button_override_under_critical_hazard);
+    RUN_TEST(test_auto_mode_ignores_manual_buttons);
     RUN_TEST(test_manual_mode_null_drivers_safety);
     RUN_TEST(test_manual_mode_critical_temp_alert);
     RUN_TEST(test_manual_mode_critical_soil_alert);

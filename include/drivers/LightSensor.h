@@ -28,15 +28,15 @@ public:
 
         int rawAdc = analogRead(pin);
         if (rawAdc <= 0) {
-            lastLightLevel = 0.0f;
-            return {0.0f, false};
+            lastLightLevel = 100000.0f;
+            return {100000.0f, false};
         }
 
         if (rawAdc >= static_cast<int>(ADC_MAX_VALUE)) {
             rawAdc = static_cast<int>(ADC_MAX_VALUE) - 1;
         }
 
-        float ldrResistance = 10000.0f * ((ADC_MAX_VALUE / static_cast<float>(rawAdc)) - 1.0f);
+        float ldrResistance = 10000.0f * (static_cast<float>(rawAdc) / (ADC_MAX_VALUE - static_cast<float>(rawAdc)));
         float lux = pow((50000.0f * pow(10.0f, 0.7f)) / ldrResistance, (1.0f / 0.7f));
 
         if (!isfinite(lux)) {

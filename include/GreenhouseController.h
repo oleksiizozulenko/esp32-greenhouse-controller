@@ -116,24 +116,33 @@ public:
     }
 
     void processAutomatic(const SensorDataMap& readings) {
-        // 1. Temperature vs Servo Ventilation Control
+        // 1. Temperature & Air Humidity vs Servo Ventilation Control
         SensorData tempData = readings.get(SensorType::TEMPERATURE);
+        SensorData humData = readings.get(SensorType::HUMIDITY);
         Actuator* vent = getActuator(ActuatorType::VENTILATION);
         if (vent != nullptr) {
-            if (tempData.isError) {
+            bool tempError = tempData.isError;
+            bool humError = humData.isError;
+
+            bool highTemp = !tempError && (tempData.value > TEMP_THRESHOLD_HIGH);
+            bool highHum = !humError && (humData.value > HUMIDITY_THRESHOLD_HIGH);
+
+            bool normalTemp = tempError || (tempData.value < (TEMP_THRESHOLD_HIGH - TEMP_HYSTERESIS));
+            bool normalHum = humError || (humData.value < (HUMIDITY_THRESHOLD_HIGH - HUMIDITY_HYSTERESIS));
+
+            if (tempError && humError) {
                 if (vent->isOn()) {
-                    Serial.printf("[AUTO] Temp Sensor Error -> Turning OFF Ventilation (%s)\n", vent->getName());
+                    Serial.printf("[AUTO] Temp & Humidity Sensor Error -> Turning OFF Ventilation (%s)\n", vent->getName());
                     vent->turnOff();
                 }
-            } else if (tempData.value > TEMP_THRESHOLD_HIGH) {
+            } else if (highTemp || highHum) {
                 if (!vent->isOn()) {
-                    Serial.printf("[AUTO] High Temp (%.2f°C > %.2f°C) -> Opening Ventilation (%s)\n",
-                                  tempData.value, TEMP_THRESHOLD_HIGH, vent->getName());
+                    Serial.printf("[AUTO] High %s -> Opening Ventilation (%s)\n",
+                                  highTemp ? "Temp" : "Air Humidity", vent->getName());
                     vent->turnOn();
                 }
-            } else if (tempData.value < (TEMP_THRESHOLD_HIGH - TEMP_HYSTERESIS) && vent->isOn()) {
-                Serial.printf("[AUTO] Normal Temp (%.2f°C < %.2f°C) -> Closing Ventilation (%s)\n",
-                              tempData.value, TEMP_THRESHOLD_HIGH - TEMP_HYSTERESIS, vent->getName());
+            } else if (normalTemp && normalHum && vent->isOn()) {
+                Serial.printf("[AUTO] Normal Temp & Humidity -> Closing Ventilation (%s)\n", vent->getName());
                 vent->turnOff();
             }
         }
@@ -228,6 +237,9 @@ public:
                 ButtonDriver* btnVent = nullptr,
                 ButtonDriver* btnLight = nullptr) {
         if (isAutoMode) {
+            if (btnIrrig) btnIrrig->wasPressed();
+            if (btnVent) btnVent->wasPressed();
+            if (btnLight) btnLight->wasPressed();
             processAutomatic(readings);
         } else {
             processManual(readings, healthState, btnIrrig, btnVent, btnLight);
