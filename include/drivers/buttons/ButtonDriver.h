@@ -9,17 +9,26 @@
 
 class ButtonDriver {
 private:
+    static uint8_t generateNextId() {
+        static uint8_t counter = 0;
+        return ++counter;
+    }
+
+    uint8_t id;
     int pin;
     ButtonType buttonType;
     bool lastState;
     bool currentState;
-    unsigned long lastDebounceTime;
+    volatile unsigned long lastDebounceTime;
     unsigned long debounceDelay;
+    QueueHandle_t eventQueue;
+
+    static void IRAM_ATTR isrHandler(void* arg);
 
 public:
     ButtonDriver(int pin, ButtonType buttonType = ButtonType::MODE, unsigned long debounceDelay = DEBOUNCE_DELAY)
-        : pin(pin), buttonType(buttonType), lastState(HIGH), currentState(HIGH),
-          lastDebounceTime(0), debounceDelay(debounceDelay) {}
+        : id(generateNextId()), pin(pin), buttonType(buttonType), lastState(HIGH), currentState(HIGH),
+          lastDebounceTime(0), debounceDelay(debounceDelay), eventQueue(NULL) {}
 
     ButtonDriver(int pin, unsigned long debounceDelay)
         : ButtonDriver(pin, ButtonType::MODE, debounceDelay) {}
@@ -30,11 +39,17 @@ public:
         lastState = currentState;
     }
 
+    void attachInterruptHandler(QueueHandle_t queue) {
+        this->eventQueue = queue;
+        init();
+        attachInterruptArg(digitalPinToInterrupt(pin), isrHandler, this, FALLING);
+    }
+
     bool isPressed() const {
         return digitalRead(pin) == LOW;
     }
 
-    // Returns true once per debounced button press event
+    // Returns true once per debounced button press event (polling fallback)
     bool wasPressed() {
         bool reading = digitalRead(pin);
         bool pressedEvent = false;
@@ -63,6 +78,7 @@ public:
         pinMode(pin, INPUT_PULLUP);
     }
 
+    uint8_t getId() const { return id; }
     int getPin() const { return pin; }
     ButtonType getType() const { return buttonType; }
 };

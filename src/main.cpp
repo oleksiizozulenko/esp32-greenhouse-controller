@@ -95,54 +95,26 @@ void vTaskSensors(void* pvParameters) {
   }
 }
 
-// 2. TaskButtons: Polls debounced buttons every 20ms and pushes events onto buttonEventQueue
-void vTaskButtons(void* pvParameters) {
-  (void)pvParameters;
-  TickType_t xLastWakeTime = xTaskGetTickCount();
-  const TickType_t xFrequency = pdMS_TO_TICKS(20);
-
-  for (;;) {
-    if (btnMode.wasPressed()) {
-      ButtonEvent evt(ButtonType::MODE, millis());
-      xQueueSend(buttonEventQueue, &evt, 0);
-    }
-    if (btnIrrig.wasPressed()) {
-      ButtonEvent evt(ButtonType::IRRIGATION, millis());
-      xQueueSend(buttonEventQueue, &evt, 0);
-    }
-    if (btnVent.wasPressed()) {
-      ButtonEvent evt(ButtonType::VENTILATION, millis());
-      xQueueSend(buttonEventQueue, &evt, 0);
-    }
-    if (btnLight.wasPressed()) {
-      ButtonEvent evt(ButtonType::LIGHT, millis());
-      xQueueSend(buttonEventQueue, &evt, 0);
-    }
-
-    vTaskDelayUntil(&xLastWakeTime, xFrequency);
-  }
-}
-
-// 3. TaskControl: Processes button event queue items, safety monitoring, and control loop every 100ms
+// 2. TaskControl: Processes hardware ISR queue events, safety monitoring, and control loop every 100ms
 void vTaskControl(void* pvParameters) {
   (void)pvParameters;
   TickType_t xLastWakeTime = xTaskGetTickCount();
   const TickType_t xFrequency = pdMS_TO_TICKS(100);
 
   for (;;) {
-    // A. Drain and process queued button events
+    // A. Drain and process queued hardware interrupt events
     ButtonEvent evt;
     while (xQueueReceive(buttonEventQueue, &evt, 0) == pdTRUE) {
       if (evt.type == ButtonType::MODE) {
         if (xSemaphoreTake(modeMutex, portMAX_DELAY) == pdTRUE) {
           currentMode = toggleSystemMode(currentMode);
-          Serial.printf("[QUEUE EVENT] Mode button pressed at %lu ms -> Mode toggled to: %s\n",
-                        evt.timestamp, currentMode == SystemMode::AUTOMATIC ? "AUTOMATIC" : "MANUAL");
+          Serial.printf("[ISR QUEUE EVENT] Mode button (ID %u) pressed at %lu ms -> Mode toggled to: %s\n",
+                        evt.buttonId, evt.timestamp, currentMode == SystemMode::AUTOMATIC ? "AUTOMATIC" : "MANUAL");
           xSemaphoreGive(modeMutex);
         }
       } else {
-        Serial.printf("[QUEUE EVENT] Actuator Button %d pressed at %lu ms -> Notifying Controller\n",
-                      (int)evt.type, evt.timestamp);
+        Serial.printf("[ISR QUEUE EVENT] Actuator ButtonType: %d, ID: %u pressed at %lu ms -> Notifying Controller\n",
+                      (int)evt.type, evt.buttonId, evt.timestamp);
         greenhouseController.onButtonPressed(evt.type);
       }
     }
@@ -184,7 +156,7 @@ void vTaskControl(void* pvParameters) {
   }
 }
 
-// 4. TaskDisplay: Renders OLED ViewModel every 200ms on Core 0
+// 3. TaskDisplay: Renders OLED ViewModel every 200ms on Core 0
 void vTaskDisplay(void* pvParameters) {
   (void)pvParameters;
   TickType_t xLastWakeTime = xTaskGetTickCount();
@@ -216,7 +188,7 @@ void vTaskDisplay(void* pvParameters) {
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("Greenhouse Controller Starting (RTOS Mode + Button Queue)...");
+  Serial.println("Greenhouse Controller Starting (RTOS Encapsulated ISR Mode)...");
 
   // Create Synchronization Mutexes & Event Queue
   sensorMutex = xSemaphoreCreateMutex();
@@ -236,28 +208,28 @@ void setup() {
   greenhouseController.addActuator(&lightActuator);
   greenhouseController.begin();
 
-  // Initialize Buttons
-  btnMode.init();
-  btnIrrig.init();
-  btnVent.init();
-  btnLight.init();
+  // Initialize Hardware Button Drivers & Attach ISRs directly
+  btnMode.attachInterruptHandler(buttonEventQueue);
+  btnIrrig.attachInterruptHandler(buttonEventQueue);
+  btnVent.attachInterruptHandler(buttonEventQueue);
+  btnLight.attachInterruptHandler(buttonEventQueue);
 
   // Initialize Display
   displayManager.init();
-  Serial.println("Greenhouse Controller Hardware Ready. Creating FreeRTOS Tasks & Queues...");
+  Serial.println("Greenhouse Controller Hardware Ready. Creating FreeRTOS Tasks...");
 
   // Create FreeRTOS Tasks
   xTaskCreatePinnedToCore(vTaskSensors, "TaskSensors", 4096, NULL, 2, NULL, 1);
-  xTaskCreatePinnedToCore(vTaskButtons, "TaskButtons", 2048, NULL, 3, NULL, 1);
   xTaskCreatePinnedToCore(vTaskControl, "TaskControl", 4096, NULL, 3, NULL, 1);
   xTaskCreatePinnedToCore(vTaskDisplay, "TaskDisplay", 4096, NULL, 1, NULL, 0);
 
-  Serial.println("FreeRTOS Tasks & Queue Started Successfully.");
+  Serial.println("FreeRTOS Tasks & Hardware ISRs Started Successfully.");
 }
 
 void loop() {
   // FreeRTOS scheduler handles tasks. Delete default loop task to reclaim stack memory.
   vTaskDelete(NULL);
 }
+
 
 
