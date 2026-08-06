@@ -173,7 +173,7 @@ public:
         for (size_t i = 0; i < sensorCount; ++i) {
             results[i].sensor = sensors[i];
             if (sensors[i] != nullptr) {
-                results[i].data = sensors[i]->read();
+                results[i].data = sensors[i]->readProcessed();
             } else {
                 results[i].data = {0.0f, true};
             }
@@ -194,7 +194,7 @@ public:
 
         for (size_t i = 0; i < sensorCount; ++i) {
             if (sensors[i] == nullptr) continue;
-            SensorData data = sensors[i]->read();
+            SensorData data = sensors[i]->readProcessed();
             if (data.isError) {
                 Serial.printf("Error reading sensor %s\n", sensors[i]->getName());
             } else {
