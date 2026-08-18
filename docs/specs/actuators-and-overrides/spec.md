@@ -68,13 +68,17 @@ In `SystemMode::MANUAL`, operators SHALL have direct hardware button override ca
 - **GIVEN** the system is in `SystemMode::MANUAL`
 - **WHEN** `PIN_BTN_IRRIG` is pressed and debounced
 - **THEN** the system SHALL toggle the current state of the irrigation pump
+- **AND** if turned `ON`, the system SHALL start a 10-second FreeRTOS safety auto-off timer (`IRRIGATION_TIMEOUT_MS`)
 
 #### Scenario: Manual ventilation button press
 - **GIVEN** the system is in `SystemMode::MANUAL`
 - **WHEN** `PIN_BTN_VENT` is pressed and debounced
 - **THEN** the system SHALL toggle the ventilation servo position between $0^\circ$ and $90^\circ$
+- **AND** if turned `ON`, the system SHALL start a 30-second FreeRTOS safety auto-off timer (`VENTILATION_TIMEOUT_MS`)
 
 #### Scenario: Manual light button press
 - **GIVEN** the system is in `SystemMode::MANUAL`
 - **WHEN** `PIN_BTN_LIGHT` is pressed and debounced
 - **THEN** the system SHALL toggle the supplemental growth light state
+- **AND** if turned `ON`, the system SHALL start a 60-second FreeRTOS safety auto-off timer (`LIGHT_TIMEOUT_MS`)
+

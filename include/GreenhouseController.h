@@ -2,6 +2,8 @@
 #define GREENHOUSE_CONTROLLER_H
 
 #include <Arduino.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/timers.h>
 #include "config.h"
 #include "drivers/Actuator.h"
 #include "drivers/buttons/ButtonDriver.h"
@@ -10,14 +12,64 @@
 #include "services/SafetyMonitorService.h"
 
 class GreenhouseController : public IButtonListener {
+public:
+    struct TimerContext {
+        GreenhouseController* controller;
+        ActuatorType actuatorType;
+    };
+
+    struct ActuatorTimer {
+        ActuatorType type;
+        TimerHandle_t timer;
+        uint32_t timeoutMs;
+        TimerContext* context;
+    };
+
 private:
     Actuator** actuators;
     size_t capacity;
     size_t actuatorCount;
 
+    ActuatorTimer** timers;
+    size_t timerCapacity;
+    size_t timerCount;
+
     int redLedPin;
     int greenLedPin;
     int buzzerPin;
+
+    static void vActuatorTimerCallback(TimerHandle_t xTimer) {
+        TimerContext* ctx = (TimerContext*)pvTimerGetTimerID(xTimer);
+        if (ctx != nullptr && ctx->controller != nullptr) {
+            Actuator* act = ctx->controller->getActuator(ctx->actuatorType);
+            if (act != nullptr && act->isOn()) {
+                Serial.printf("[SAFETY TIMER] %s Timer Expired -> Auto Turning OFF\n", act->getName());
+                act->turnOff();
+            }
+        }
+    }
+
+    bool addActuatorTimer(ActuatorTimer* timerObj) {
+        if (timerObj == nullptr) return false;
+
+        if (timerCount >= timerCapacity) {
+            size_t newCapacity = (timerCapacity == 0) ? 4 : timerCapacity * 2;
+            ActuatorTimer** newTimers = new ActuatorTimer*[newCapacity];
+            for (size_t i = 0; i < timerCount; ++i) {
+                newTimers[i] = timers[i];
+            }
+            for (size_t i = timerCount; i < newCapacity; ++i) {
+                newTimers[i] = nullptr;
+            }
+            if (timers != nullptr) {
+                delete[] timers;
+            }
+            timers = newTimers;
+            timerCapacity = newCapacity;
+        }
+        timers[timerCount++] = timerObj;
+        return true;
+    }
 
 public:
     GreenhouseController(size_t initialCapacity = 4,
@@ -25,10 +77,16 @@ public:
                          int greenLed = PIN_LED_GREEN,
                          int buzzer = PIN_BUZZER)
         : actuators(nullptr), capacity(0), actuatorCount(0),
+          timers(nullptr), timerCapacity(0), timerCount(0),
           redLedPin(redLed), greenLedPin(greenLed), buzzerPin(buzzer) {
         if (initialCapacity > 0) {
             capacity = initialCapacity;
             actuators = new Actuator*[capacity];
+            timerCapacity = initialCapacity;
+            timers = new ActuatorTimer*[timerCapacity];
+            for (size_t i = 0; i < timerCapacity; ++i) {
+                timers[i] = nullptr;
+            }
         }
     }
 
@@ -37,28 +95,21 @@ public:
             delete[] actuators;
             actuators = nullptr;
         }
-    }
-
-    // Event Listener Callback for Physical Button Presses
-    void onButtonPressed(ButtonType button) override {
-        ActuatorType targetType = ActuatorType::UNKNOWN;
-        if (button == ButtonType::VENTILATION) {
-            targetType = ActuatorType::VENTILATION;
-        } else if (button == ButtonType::IRRIGATION) {
-            targetType = ActuatorType::IRRIGATION;
-        } else if (button == ButtonType::LIGHT) {
-            targetType = ActuatorType::LIGHT;
-        }
-
-        Actuator* act = getActuator(targetType);
-        if (act != nullptr) {
-            if (act->isOn()) {
-                Serial.printf("[EVENT] Button %d pressed -> Turning OFF %s\n", (int)button, act->getName());
-                act->turnOff();
-            } else {
-                Serial.printf("[EVENT] Button %d pressed -> Turning ON %s\n", (int)button, act->getName());
-                act->turnOn();
+        if (timers != nullptr) {
+            for (size_t i = 0; i < timerCount; ++i) {
+                if (timers[i] != nullptr) {
+                    if (timers[i]->timer != NULL) {
+                        xTimerStop(timers[i]->timer, 0);
+                        xTimerDelete(timers[i]->timer, 0);
+                    }
+                    if (timers[i]->context != nullptr) {
+                        delete timers[i]->context;
+                    }
+                    delete timers[i];
+                }
             }
+            delete[] timers;
+            timers = nullptr;
         }
     }
 
@@ -100,6 +151,89 @@ public:
             }
         }
         return nullptr;
+    }
+
+    ActuatorTimer* getActuatorTimer(ActuatorType type) const {
+        for (size_t i = 0; i < timerCount; ++i) {
+            if (timers[i] != nullptr && timers[i]->type == type) {
+                return timers[i];
+            }
+        }
+        return nullptr;
+    }
+
+    void startTimerFor(ActuatorType type, uint32_t timeoutMs) {
+        ActuatorTimer* timerObj = getActuatorTimer(type);
+        if (timerObj == nullptr) {
+            Actuator* act = getActuator(type);
+            if (act == nullptr) return;
+
+            TimerContext* ctx = new TimerContext{this, type};
+            TimerHandle_t hTimer = xTimerCreate(
+                act->getName(),
+                pdMS_TO_TICKS(timeoutMs),
+                pdFALSE, // One-shot
+                (void*)ctx,
+                vActuatorTimerCallback
+            );
+
+            if (hTimer != NULL) {
+                timerObj = new ActuatorTimer{type, hTimer, timeoutMs, ctx};
+                addActuatorTimer(timerObj);
+            }
+        }
+
+        if (timerObj != nullptr && timerObj->timer != NULL) {
+            xTimerReset(timerObj->timer, 0);
+        }
+    }
+
+    void stopTimerFor(ActuatorType type) {
+        ActuatorTimer* timerObj = getActuatorTimer(type);
+        if (timerObj != nullptr && timerObj->timer != NULL) {
+            xTimerStop(timerObj->timer, 0);
+        }
+    }
+
+    // Event Listener Callback for Physical Button Presses (Manual Mode Override)
+    void onButtonPressed(ButtonType button) override {
+        ActuatorType targetType = ActuatorType::UNKNOWN;
+        if (button == ButtonType::VENTILATION) {
+            targetType = ActuatorType::VENTILATION;
+        } else if (button == ButtonType::IRRIGATION) {
+            targetType = ActuatorType::IRRIGATION;
+        } else if (button == ButtonType::LIGHT) {
+            targetType = ActuatorType::LIGHT;
+        }
+
+        Actuator* act = getActuator(targetType);
+        if (act != nullptr) {
+            if (act->isOn()) {
+                Serial.printf("[EVENT] Button %d pressed -> Turning OFF %s\n", (int)button, act->getName());
+                act->turnOff();
+                stopTimerFor(targetType);
+            } else {
+                Serial.printf("[EVENT] Button %d pressed -> Turning ON %s (With Safety Timer)\n", (int)button, act->getName());
+                act->turnOn();
+
+                uint32_t timeoutMs = getActuatorTimeout(targetType);
+                startTimerFor(targetType, timeoutMs);
+            }
+        }
+    }
+
+    uint32_t getActuatorTimeout(ActuatorType type) const {
+
+        switch (type) {
+            case ActuatorType::IRRIGATION:
+                return IRRIGATION_TIMEOUT_MS;
+            case ActuatorType::VENTILATION:
+                return VENTILATION_TIMEOUT_MS;
+            case ActuatorType::LIGHT:
+                return LIGHT_TIMEOUT_MS;
+            default:
+                return 0;
+        }
     }
 
     void begin() {
@@ -157,6 +291,7 @@ public:
                 if (vent->isOn()) {
                     Serial.printf("[AUTO] Temp & Humidity Sensor Error -> Turning OFF Ventilation (%s)\n", vent->getName());
                     vent->turnOff();
+                    stopTimerFor(ActuatorType::VENTILATION);
                 }
             } else if (highTemp || highHum) {
                 if (!vent->isOn()) {
@@ -167,6 +302,7 @@ public:
             } else if (normalTemp && normalHum && vent->isOn()) {
                 Serial.printf("[AUTO] Normal Temp & Humidity -> Closing Ventilation (%s)\n", vent->getName());
                 vent->turnOff();
+                stopTimerFor(ActuatorType::VENTILATION);
             }
         }
 
@@ -178,6 +314,7 @@ public:
                 if (irrig->isOn()) {
                     Serial.printf("[AUTO] Soil Sensor Error -> Turning OFF Irrigation (%s)\n", irrig->getName());
                     irrig->turnOff();
+                    stopTimerFor(ActuatorType::IRRIGATION);
                 }
             } else if (soilData.value < SOIL_DRY_THRESHOLD) {
                 if (!irrig->isOn()) {
@@ -189,6 +326,7 @@ public:
                 Serial.printf("[AUTO] Normal Soil Moisture (%.2f%% > %d%%) -> Turning OFF Irrigation (%s)\n",
                               soilData.value, SOIL_DRY_THRESHOLD + SOIL_HYSTERESIS, irrig->getName());
                 irrig->turnOff();
+                stopTimerFor(ActuatorType::IRRIGATION);
             }
         }
 
@@ -200,6 +338,7 @@ public:
                 if (light->isOn()) {
                     Serial.printf("[AUTO] Light Sensor Error -> Turning OFF Light (%s)\n", light->getName());
                     light->turnOff();
+                    stopTimerFor(ActuatorType::LIGHT);
                 }
             } else if (lightData.value < LIGHT_DARK_THRESHOLD && !light->isOn()) {
                 Serial.printf("[AUTO] Low Light (%.2f < %.2f) -> Turning ON Light (%s)\n",
@@ -209,6 +348,7 @@ public:
                 Serial.printf("[AUTO] Normal Light (%.2f > %.2f) -> Turning OFF Light (%s)\n",
                               lightData.value, LIGHT_DARK_THRESHOLD + LIGHT_HYSTERESIS, light->getName());
                 light->turnOff();
+                stopTimerFor(ActuatorType::LIGHT);
             }
         }
     }

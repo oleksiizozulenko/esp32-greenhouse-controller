@@ -648,6 +648,69 @@ void test_safety_hardware_error_plus_hazard(void) {
     TEST_ASSERT_EQUAL_STRING("SENSOR ERROR!", state.advisoryMsg);
 }
 
+// ----------------------------------------------------
+// 7. FreeRTOS Actuator Safety Timer Tests
+// ----------------------------------------------------
+
+void test_manual_button_starts_safety_timer(void) {
+    automation->onButtonPressed(ButtonType::IRRIGATION);
+    TEST_ASSERT_TRUE(irrigActuator->isOn());
+
+    GreenhouseController::ActuatorTimer* timerObj = automation->getActuatorTimer(ActuatorType::IRRIGATION);
+    TEST_ASSERT_NOT_NULL(timerObj);
+    TEST_ASSERT_NOT_NULL(timerObj->timer);
+
+    MockFreeRTOSTimer* mockTimer = (MockFreeRTOSTimer*)timerObj->timer;
+    TEST_ASSERT_TRUE(mockTimer->isActive);
+    TEST_ASSERT_EQUAL_UINT32(10000, timerObj->timeoutMs);
+}
+
+void test_timer_expiration_auto_turns_off_actuator(void) {
+    automation->onButtonPressed(ButtonType::IRRIGATION);
+    TEST_ASSERT_TRUE(irrigActuator->isOn());
+
+    GreenhouseController::ActuatorTimer* timerObj = automation->getActuatorTimer(ActuatorType::IRRIGATION);
+    TEST_ASSERT_NOT_NULL(timerObj);
+
+    // Simulate FreeRTOS Software Timer expiration
+    triggerMockTimerCallback(timerObj->timer);
+
+    // Actuator should automatically be turned OFF by timer callback
+    TEST_ASSERT_FALSE(irrigActuator->isOn());
+}
+
+void test_manual_button_turn_off_stops_safety_timer(void) {
+    // Turn ON irrigation -> Starts timer
+    automation->onButtonPressed(ButtonType::IRRIGATION);
+    TEST_ASSERT_TRUE(irrigActuator->isOn());
+
+    GreenhouseController::ActuatorTimer* timerObj = automation->getActuatorTimer(ActuatorType::IRRIGATION);
+    TEST_ASSERT_NOT_NULL(timerObj);
+    MockFreeRTOSTimer* mockTimer = (MockFreeRTOSTimer*)timerObj->timer;
+    TEST_ASSERT_TRUE(mockTimer->isActive);
+
+    // Press button again -> Turns OFF irrigation and stops timer
+    automation->onButtonPressed(ButtonType::IRRIGATION);
+    TEST_ASSERT_FALSE(irrigActuator->isOn());
+    TEST_ASSERT_FALSE(mockTimer->isActive);
+}
+
+void test_timer_reuse_on_multiple_manual_presses(void) {
+    automation->onButtonPressed(ButtonType::VENTILATION);
+    GreenhouseController::ActuatorTimer* timerObj1 = automation->getActuatorTimer(ActuatorType::VENTILATION);
+    TEST_ASSERT_NOT_NULL(timerObj1);
+
+    automation->onButtonPressed(ButtonType::VENTILATION); // Turn off
+    automation->onButtonPressed(ButtonType::VENTILATION); // Turn on again
+
+    GreenhouseController::ActuatorTimer* timerObj2 = automation->getActuatorTimer(ActuatorType::VENTILATION);
+    TEST_ASSERT_NOT_NULL(timerObj2);
+
+    // Must reuse identical timer object handle without memory leaks
+    TEST_ASSERT_EQUAL_PTR(timerObj1, timerObj2);
+    TEST_ASSERT_EQUAL_PTR(timerObj1->timer, timerObj2->timer);
+}
+
 int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
@@ -695,6 +758,11 @@ int main(int argc, char **argv) {
     RUN_TEST(test_safety_exact_boundary_inclusivity);
     RUN_TEST(test_safety_conflicting_hazards_priority);
     RUN_TEST(test_safety_hardware_error_plus_hazard);
+
+    RUN_TEST(test_manual_button_starts_safety_timer);
+    RUN_TEST(test_timer_expiration_auto_turns_off_actuator);
+    RUN_TEST(test_manual_button_turn_off_stops_safety_timer);
+    RUN_TEST(test_timer_reuse_on_multiple_manual_presses);
 
     return UNITY_END();
 }

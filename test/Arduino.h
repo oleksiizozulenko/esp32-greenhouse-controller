@@ -34,6 +34,13 @@
 
 typedef void* QueueHandle_t;
 typedef void* SemaphoreHandle_t;
+typedef void* TimerHandle_t;
+typedef void (*TimerCallbackFunction_t)(TimerHandle_t xTimer);
+
+#ifndef pdMS_TO_TICKS
+#define pdMS_TO_TICKS(ms) ((uint32_t)(ms))
+#endif
+
 typedef uint32_t BaseType_t;
 #ifndef pdTRUE
 #define pdTRUE 1
@@ -47,6 +54,66 @@ typedef uint32_t BaseType_t;
 #ifndef FALLING
 #define FALLING 0x2
 #endif
+
+struct MockFreeRTOSTimer {
+    const char* name;
+    uint32_t periodTicks;
+    uint32_t autoReload;
+    void* timerId;
+    TimerCallbackFunction_t callback;
+    bool isActive = false;
+};
+
+inline TimerHandle_t xTimerCreate(const char* name, uint32_t periodTicks, uint32_t autoReload, void* timerId, TimerCallbackFunction_t callback) {
+    MockFreeRTOSTimer* timer = new MockFreeRTOSTimer{name, periodTicks, autoReload, timerId, callback, false};
+    return (TimerHandle_t)timer;
+}
+
+inline void* pvTimerGetTimerID(TimerHandle_t xTimer) {
+    if (!xTimer) return nullptr;
+    return ((MockFreeRTOSTimer*)xTimer)->timerId;
+}
+
+inline BaseType_t xTimerStart(TimerHandle_t xTimer, uint32_t ticksToWait) {
+    (void)ticksToWait;
+    if (xTimer) {
+        ((MockFreeRTOSTimer*)xTimer)->isActive = true;
+    }
+    return pdTRUE;
+}
+
+inline BaseType_t xTimerReset(TimerHandle_t xTimer, uint32_t ticksToWait) {
+    (void)ticksToWait;
+    if (xTimer) {
+        ((MockFreeRTOSTimer*)xTimer)->isActive = true;
+    }
+    return pdTRUE;
+}
+
+inline BaseType_t xTimerStop(TimerHandle_t xTimer, uint32_t ticksToWait) {
+    (void)ticksToWait;
+    if (xTimer) {
+        ((MockFreeRTOSTimer*)xTimer)->isActive = false;
+    }
+    return pdTRUE;
+}
+
+inline BaseType_t xTimerDelete(TimerHandle_t xTimer, uint32_t ticksToWait) {
+    (void)ticksToWait;
+    if (xTimer) {
+        delete (MockFreeRTOSTimer*)xTimer;
+    }
+    return pdTRUE;
+}
+
+inline void triggerMockTimerCallback(TimerHandle_t xTimer) {
+    if (xTimer) {
+        MockFreeRTOSTimer* t = (MockFreeRTOSTimer*)xTimer;
+        if (t->callback) {
+            t->callback(xTimer);
+        }
+    }
+}
 
 inline int digitalPinToInterrupt(int pin) { return pin; }
 inline void attachInterruptArg(int pin, void (*isr)(void*), void* arg, int mode) { (void)pin; (void)isr; (void)arg; (void)mode; }

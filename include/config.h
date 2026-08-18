@@ -109,6 +109,11 @@ inline SystemMode toggleSystemMode(SystemMode currentMode) {
 #define OLED_REFRESH_INTERVAL 500   // Display refresh interval (ms)
 #define DEBOUNCE_DELAY        50    // Button debounce delay (ms)
 
+// Actuator Safety Auto-Off Timings (ms)
+#define IRRIGATION_TIMEOUT_MS  10000 // 10s auto-shutoff
+#define VENTILATION_TIMEOUT_MS 30000 // 30s auto-shutoff
+#define LIGHT_TIMEOUT_MS       60000 // 60s auto-shutoff
+
 // ==========================================
 // 4. ADC & CONVERSION CONSTANTS
 // ==========================================
