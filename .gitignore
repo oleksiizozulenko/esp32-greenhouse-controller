@@ -4,5 +4,6 @@
 .vscode/launch.json
 .vscode/ipch
 .pio_core/
+.agent/
 
 .vscode/settings.json
