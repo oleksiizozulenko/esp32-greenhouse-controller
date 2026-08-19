@@ -137,31 +137,31 @@ void vTaskSensors(void* pvParameters) {
   }
 }
 
-// 2. TaskControl: Subscriber 1 -> Listens for SENSOR_READY, BUTTON_EVENT, and SAFETY_WARNING
+// 2. TaskControl: Subscriber 1 -> Listens for SENSOR_READY, BUTTON_EVENT, and SAFETY_WARNING (100% Event-Driven)
 void vTaskControl(void* pvParameters) {
   (void)pvParameters;
-  TickType_t xLastWakeTime = xTaskGetTickCount();
-  const TickType_t xFrequency = pdMS_TO_TICKS(100);
 
   for (;;) {
-    // Check subscribed bits from Event Group
+    // 1. BLOCK until an event occurs (SENSOR_READY, BUTTON_EVENT, SAFETY_WARNING)
+    //    OR until fallback timeout of 100ms expires for periodic safety evaluation!
+    EventBits_t bits = 0;
     if (systemEventGroup != NULL) {
-      EventBits_t bits = xEventGroupWaitBits(
+      bits = xEventGroupWaitBits(
           systemEventGroup,
           EVENT_BIT_SENSOR_READY | EVENT_BIT_BUTTON_EVENT | EVENT_BIT_SAFETY_WARNING,
-          pdTRUE,  // Clear bits on exit
-          pdFALSE, // Wake on ANY bit
-          0        // Non-blocking poll
+          pdTRUE,             // Clear bits on exit
+          pdFALSE,            // Wake on ANY bit (OR logic)
+          pdMS_TO_TICKS(100)  // BLOCK up to 100ms (Wakes INSTANTLY when an event fires!)
       );
 
       if (bits & EVENT_BIT_SENSOR_READY) {
-        Serial.println("[EVENT GROUP] vTaskControl notified: EVENT_BIT_SENSOR_READY!");
+        Serial.println("[EVENT-DRIVEN] vTaskControl woken INSTANTLY by fresh sensor data!");
       }
       if (bits & EVENT_BIT_BUTTON_EVENT) {
-        Serial.println("[EVENT GROUP] vTaskControl notified: EVENT_BIT_BUTTON_EVENT!");
+        Serial.println("[EVENT-DRIVEN] vTaskControl woken INSTANTLY by button press!");
       }
       if (bits & EVENT_BIT_SAFETY_WARNING) {
-        Serial.println("[EVENT GROUP] vTaskControl notified: EVENT_BIT_SAFETY_WARNING!");
+        Serial.println("[EVENT-DRIVEN] vTaskControl woken INSTANTLY by safety warning!");
       }
     }
 
@@ -226,7 +226,7 @@ void vTaskControl(void* pvParameters) {
     // G. Run periodic task memory diagnostics
     printTaskStackDiagnostics();
 
-    vTaskDelayUntil(&xLastWakeTime, xFrequency);
+    // Note: Blocking is handled by xEventGroupWaitBits at top of loop!
   }
 }
 
