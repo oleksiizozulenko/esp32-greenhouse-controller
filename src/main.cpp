@@ -43,9 +43,12 @@ GreenhouseController greenhouseController;
 
 // System Mode & Mutexes / Queues / Event Groups
 SystemMode currentMode = SystemMode::MANUAL;
-SemaphoreHandle_t sensorMutex = NULL;
 SemaphoreHandle_t modeMutex = NULL;
 QueueHandle_t buttonEventQueue = NULL;
+
+// Lock-Free Sensor Data Streaming Queues (Pass-by-Value)
+QueueHandle_t controlSensorQueue = NULL;
+QueueHandle_t displaySensorQueue = NULL;
 
 // FreeRTOS Event Group Handle & Bitmask Definitions
 EventGroupHandle_t systemEventGroup = NULL;
@@ -59,8 +62,7 @@ TaskHandle_t hTaskSensors = NULL;
 TaskHandle_t hTaskControl = NULL;
 TaskHandle_t hTaskDisplay = NULL;
 
-// Shared State Guarded by Mutex
-SensorDataMap globalReadings;
+// Shared Health State Guarded by Mutex
 SystemHealthState globalHealthState;
 
 void printTaskStackDiagnostics() {
@@ -117,7 +119,7 @@ void handleAutomaticMode(const SensorDataMap& readings) {
 // FreeRTOS Task Definitions
 // -------------------------------------------------------------------
 
-// 1. TaskSensors: Samples sensors every 2000ms and broadcasts EVENT_BIT_SENSOR_READY
+// 1. TaskSensors: Samples sensors every 2000ms & streams data via lock-free queues
 void vTaskSensors(void* pvParameters) {
   (void)pvParameters;
   esp_task_wdt_add(NULL); // Register vTaskSensors with Task Watchdog Timer
@@ -130,12 +132,15 @@ void vTaskSensors(void* pvParameters) {
 
     SensorDataMap readings = sensorsService.read();
 
-    if (xSemaphoreTake(sensorMutex, portMAX_DELAY) == pdTRUE) {
-      globalReadings = readings;
-      xSemaphoreGive(sensorMutex);
+    // Lock-Free Streaming: Send copies of readings to subscriber queues (Zero Mutex Locks!)
+    if (controlSensorQueue != NULL) {
+      xQueueSend(controlSensorQueue, &readings, 0);
+    }
+    if (displaySensorQueue != NULL) {
+      xQueueSend(displaySensorQueue, &readings, 0);
     }
 
-    // Publish event: Broadcast SENSOR_READY bit to all subscribers!
+    // Publish event: Broadcast SENSOR_READY bit to wake subscribers instantly!
     if (systemEventGroup != NULL) {
       xEventGroupSetBits(systemEventGroup, EVENT_BIT_SENSOR_READY);
     }
@@ -144,10 +149,12 @@ void vTaskSensors(void* pvParameters) {
   }
 }
 
-// 2. TaskControl: Subscriber 1 -> Listens for SENSOR_READY, BUTTON_EVENT, and SAFETY_WARNING (100% Event-Driven)
+// 2. TaskControl: Subscriber 1 -> Consumes streamed sensor data & processes safety/control loop
 void vTaskControl(void* pvParameters) {
   (void)pvParameters;
   esp_task_wdt_add(NULL); // Register vTaskControl with Task Watchdog Timer
+
+  static SensorDataMap lastReadings;
 
   for (;;) {
     esp_task_wdt_reset(); // Feed Task Watchdog Timer
@@ -165,13 +172,10 @@ void vTaskControl(void* pvParameters) {
       );
 
       if (bits & EVENT_BIT_SENSOR_READY) {
-        Serial.println("[EVENT-DRIVEN] vTaskControl woken INSTANTLY by fresh sensor data!");
+        Serial.println("[LOCK-FREE STREAM] vTaskControl woken INSTANTLY by fresh sensor data!");
       }
       if (bits & EVENT_BIT_BUTTON_EVENT) {
-        Serial.println("[EVENT-DRIVEN] vTaskControl woken INSTANTLY by button press!");
-      }
-      if (bits & EVENT_BIT_SAFETY_WARNING) {
-        Serial.println("[EVENT-DRIVEN] vTaskControl woken INSTANTLY by safety warning!");
+        Serial.println("[LOCK-FREE STREAM] vTaskControl woken INSTANTLY by button press!");
       }
     }
 
@@ -200,11 +204,10 @@ void vTaskControl(void* pvParameters) {
       }
     }
 
-    // B. Copy latest sensor readings
-    SensorDataMap readingsCopy;
-    if (xSemaphoreTake(sensorMutex, portMAX_DELAY) == pdTRUE) {
-      readingsCopy = globalReadings;
-      xSemaphoreGive(sensorMutex);
+    // B. Consume fresh streamed sensor data (Lock-Free!)
+    SensorDataMap newReadings;
+    if (controlSensorQueue != NULL && xQueueReceive(controlSensorQueue, &newReadings, 0) == pdTRUE) {
+      lastReadings = newReadings;
     }
 
     // C. Read current system mode safely
@@ -215,63 +218,49 @@ void vTaskControl(void* pvParameters) {
     }
     bool isAutoMode = (mode == SystemMode::AUTOMATIC);
 
-    // D. Evaluate safety conditions
-    SystemHealthState healthState = safetyMonitorService.evaluate(readingsCopy, isAutoMode);
-
-    if (xSemaphoreTake(sensorMutex, portMAX_DELAY) == pdTRUE) {
-      globalHealthState = healthState;
-      xSemaphoreGive(sensorMutex);
-    }
+    // D. Evaluate safety conditions using local readings copy (Zero Mutex Locking!)
+    SystemHealthState healthState = safetyMonitorService.evaluate(lastReadings, isAutoMode);
+    globalHealthState = healthState;
 
     // E. Mode logging
     if (isAutoMode) {
-      handleAutomaticMode(readingsCopy);
+      handleAutomaticMode(lastReadings);
     } else {
       handleManualMode();
     }
 
     // F. Execute automatic/manual control updates
-    greenhouseController.update(isAutoMode, readingsCopy, healthState);
+    greenhouseController.update(isAutoMode, lastReadings, healthState);
 
     // G. Run periodic task memory diagnostics
     printTaskStackDiagnostics();
-
-    // Note: Blocking is handled by xEventGroupWaitBits at top of loop!
   }
 }
 
-// 3. TaskDisplay: Subscriber 2 -> Listens for SENSOR_READY, MODE_CHANGED, and SAFETY_WARNING on Core 0
+// 3. TaskDisplay: Subscriber 2 -> Consumes streamed sensor data & renders OLED on Core 0
 void vTaskDisplay(void* pvParameters) {
   (void)pvParameters;
   TickType_t xLastWakeTime = xTaskGetTickCount();
   const TickType_t xFrequency = pdMS_TO_TICKS(200);
 
+  static SensorDataMap lastDisplayReadings;
+
   for (;;) {
     // Check subscribed bits from Event Group
     if (systemEventGroup != NULL) {
-      EventBits_t bits = xEventGroupWaitBits(
+      xEventGroupWaitBits(
           systemEventGroup,
           EVENT_BIT_SENSOR_READY | EVENT_BIT_MODE_CHANGED | EVENT_BIT_SAFETY_WARNING,
           pdTRUE,  // Clear bits on exit
           pdFALSE, // Wake on ANY bit
           0        // Non-blocking poll
       );
-
-      if (bits & EVENT_BIT_SENSOR_READY) {
-        Serial.println("[EVENT GROUP] vTaskDisplay notified in parallel: EVENT_BIT_SENSOR_READY!");
-      }
-      if (bits & EVENT_BIT_MODE_CHANGED) {
-        Serial.println("[EVENT GROUP] vTaskDisplay notified in parallel: EVENT_BIT_MODE_CHANGED!");
-      }
     }
 
-    SensorDataMap readingsCopy;
-    SystemHealthState healthCopy;
-
-    if (xSemaphoreTake(sensorMutex, portMAX_DELAY) == pdTRUE) {
-      readingsCopy = globalReadings;
-      healthCopy = globalHealthState;
-      xSemaphoreGive(sensorMutex);
+    // Lock-Free Stream: Consume latest readings from display queue
+    SensorDataMap newDisplayReadings;
+    if (displaySensorQueue != NULL && xQueueReceive(displaySensorQueue, &newDisplayReadings, 0) == pdTRUE) {
+      lastDisplayReadings = newDisplayReadings;
     }
 
     SystemMode mode = SystemMode::MANUAL;
@@ -281,7 +270,7 @@ void vTaskDisplay(void* pvParameters) {
     }
     bool isAutoMode = (mode == SystemMode::AUTOMATIC);
 
-    DisplayViewModel vm = greenhouseController.buildDisplayViewModel(isAutoMode, readingsCopy, healthCopy);
+    DisplayViewModel vm = greenhouseController.buildDisplayViewModel(isAutoMode, lastDisplayReadings, globalHealthState);
     displayManager.render(vm);
 
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
@@ -290,13 +279,16 @@ void vTaskDisplay(void* pvParameters) {
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("Greenhouse Controller Starting (FreeRTOS Task Watchdog Mode)...");
+  Serial.println("Greenhouse Controller Starting (Lock-Free Sensor Streaming Mode)...");
 
   // Initialize Task Watchdog Timer (5-second timeout, Panic Reboot = true)
   esp_task_wdt_init(WDT_TIMEOUT_SECONDS, true);
 
-  // Create Synchronization Mutexes, Event Queue, and Event Group
-  sensorMutex = xSemaphoreCreateMutex();
+  // Create Lock-Free Sensor Streaming Queues (Depth = 2)
+  controlSensorQueue = xQueueCreate(2, sizeof(SensorDataMap));
+  displaySensorQueue = xQueueCreate(2, sizeof(SensorDataMap));
+
+  // Create Synchronization Mutex, Event Queue, and Event Group
   modeMutex = xSemaphoreCreateMutex();
   buttonEventQueue = xQueueCreate(10, sizeof(ButtonEvent));
   systemEventGroup = xEventGroupCreate();
@@ -336,6 +328,3 @@ void loop() {
   // FreeRTOS scheduler handles tasks. Delete default loop task to reclaim stack memory.
   vTaskDelete(NULL);
 }
-
-
-
