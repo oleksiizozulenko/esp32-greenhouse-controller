@@ -13,6 +13,9 @@
 #include "services/SafetyMonitorService.h"
 #include "services/DisplayManager.h"
 #include "GreenhouseController.h"
+#include <esp_task_wdt.h>
+
+#define WDT_TIMEOUT_SECONDS 5
 
 // Sensor Drivers
 DHT dht(PIN_DHT, DHT_TYPE);
@@ -117,10 +120,14 @@ void handleAutomaticMode(const SensorDataMap& readings) {
 // 1. TaskSensors: Samples sensors every 2000ms and broadcasts EVENT_BIT_SENSOR_READY
 void vTaskSensors(void* pvParameters) {
   (void)pvParameters;
+  esp_task_wdt_add(NULL); // Register vTaskSensors with Task Watchdog Timer
+
   TickType_t xLastWakeTime = xTaskGetTickCount();
   const TickType_t xFrequency = pdMS_TO_TICKS(2000);
 
   for (;;) {
+    esp_task_wdt_reset(); // Feed Task Watchdog Timer
+
     SensorDataMap readings = sensorsService.read();
 
     if (xSemaphoreTake(sensorMutex, portMAX_DELAY) == pdTRUE) {
@@ -140,8 +147,11 @@ void vTaskSensors(void* pvParameters) {
 // 2. TaskControl: Subscriber 1 -> Listens for SENSOR_READY, BUTTON_EVENT, and SAFETY_WARNING (100% Event-Driven)
 void vTaskControl(void* pvParameters) {
   (void)pvParameters;
+  esp_task_wdt_add(NULL); // Register vTaskControl with Task Watchdog Timer
 
   for (;;) {
+    esp_task_wdt_reset(); // Feed Task Watchdog Timer
+
     // 1. BLOCK until an event occurs (SENSOR_READY, BUTTON_EVENT, SAFETY_WARNING)
     //    OR until fallback timeout of 100ms expires for periodic safety evaluation!
     EventBits_t bits = 0;
@@ -280,7 +290,10 @@ void vTaskDisplay(void* pvParameters) {
 
 void setup() {
   Serial.begin(115200);
-  Serial.println("Greenhouse Controller Starting (FreeRTOS Event Groups Mode)...");
+  Serial.println("Greenhouse Controller Starting (FreeRTOS Task Watchdog Mode)...");
+
+  // Initialize Task Watchdog Timer (5-second timeout, Panic Reboot = true)
+  esp_task_wdt_init(WDT_TIMEOUT_SECONDS, true);
 
   // Create Synchronization Mutexes, Event Queue, and Event Group
   sensorMutex = xSemaphoreCreateMutex();
