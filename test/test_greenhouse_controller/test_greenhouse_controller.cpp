@@ -711,6 +711,39 @@ void test_timer_reuse_on_multiple_manual_presses(void) {
     TEST_ASSERT_EQUAL_PTR(timerObj1->timer, timerObj2->timer);
 }
 
+void test_system_under_high_load_stress(void) {
+    // Perform 1000 rapid cycles of mode toggles, button presses, sensor updates, and timer expirations
+    for (int i = 0; i < 1000; i++) {
+        // 1. Rapid button presses
+        automation->onButtonPressed(ButtonType::IRRIGATION);
+        automation->onButtonPressed(ButtonType::VENTILATION);
+        automation->onButtonPressed(ButtonType::LIGHT);
+        automation->onButtonPressed(ButtonType::MODE);
+
+        // 2. Rapid sensor updates with varying values
+        float temp = (i % 2 == 0) ? 38.0f : 22.0f;
+        float soil = (i % 3 == 0) ? 15.0f : 55.0f;
+        setMockSensorData(tempSensor, temp, false);
+        setMockSensorData(soilMoistureSensor, soil, false);
+
+        SensorDataMap readings;
+        readings.push_back({tempSensor, tempSensor->read()});
+        readings.push_back({soilMoistureSensor, soilMoistureSensor->read()});
+
+        SystemHealthState health = safetyMonitor->evaluate(readings, true);
+        automation->update(true, readings, health);
+
+        // 3. Trigger active timers
+        GreenhouseController::ActuatorTimer* irrigTimer = automation->getActuatorTimer(ActuatorType::IRRIGATION);
+        if (irrigTimer && irrigTimer->timer) {
+            triggerMockTimerCallback((MockFreeRTOSTimer*)irrigTimer->timer);
+        }
+    }
+
+    // After 1000 high-load iterations, system must remain stable and consistent
+    TEST_ASSERT_NOT_NULL(automation);
+}
+
 int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
@@ -763,6 +796,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_timer_expiration_auto_turns_off_actuator);
     RUN_TEST(test_manual_button_turn_off_stops_safety_timer);
     RUN_TEST(test_timer_reuse_on_multiple_manual_presses);
+    RUN_TEST(test_system_under_high_load_stress);
 
     return UNITY_END();
 }

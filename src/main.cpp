@@ -316,12 +316,23 @@ void setup() {
   displayManager.init();
   Serial.println("Greenhouse Controller Hardware Ready. Creating FreeRTOS Tasks...");
 
-  // Create FreeRTOS Tasks & Save Handles for Memory Diagnostics
-  xTaskCreatePinnedToCore(vTaskSensors, "TaskSensors", 4096, NULL, 2, &hTaskSensors, 1);
-  xTaskCreatePinnedToCore(vTaskControl, "TaskControl", 4096, NULL, 3, &hTaskControl, 1);
-  xTaskCreatePinnedToCore(vTaskDisplay, "TaskDisplay", 4096, NULL, 1, &hTaskDisplay, 0);
+  // Create FreeRTOS Tasks with Tuned Stack Allocations & Save Handles for Diagnostics
+  xTaskCreatePinnedToCore(vTaskSensors, "TaskSensors", 2048, NULL, 2, &hTaskSensors, 1);
+  xTaskCreatePinnedToCore(vTaskControl, "TaskControl", 3072, NULL, 3, &hTaskControl, 1);
+  xTaskCreatePinnedToCore(vTaskDisplay, "TaskDisplay", 3072, NULL, 1, &hTaskDisplay, 0);
 
   Serial.println("FreeRTOS Tasks & Hardware ISRs Started Successfully.");
+}
+
+// -------------------------------------------------------------------
+// FreeRTOS Stack Overflow Protection Hook
+// -------------------------------------------------------------------
+extern "C" void vApplicationStackOverflowHook(TaskHandle_t xTask, char* pcTaskName) {
+  (void)xTask;
+  Serial.printf("\n[STACK OVERFLOW] CRITICAL ALARM: Task '%s' overflowed its stack!\n", pcTaskName ? pcTaskName : "Unknown");
+  Serial.println("[STACK OVERFLOW] Emergency rebooting ESP32 in 1000ms...\n");
+  delay(1000);
+  ESP.restart();
 }
 
 void loop() {
