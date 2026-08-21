@@ -66,6 +66,27 @@ TaskHandle_t hTaskDisplay = NULL;
 
 // Shared Health State Guarded by Mutex
 SystemHealthState globalHealthState;
+SemaphoreHandle_t healthStateMutex = NULL;
+
+void setGlobalHealthState(const SystemHealthState& state) {
+  if (healthStateMutex != NULL && xSemaphoreTake(healthStateMutex, portMAX_DELAY) == pdTRUE) {
+    globalHealthState = state;
+    xSemaphoreGive(healthStateMutex);
+  } else {
+    globalHealthState = state;
+  }
+}
+
+SystemHealthState getGlobalHealthState() {
+  SystemHealthState copy;
+  if (healthStateMutex != NULL && xSemaphoreTake(healthStateMutex, portMAX_DELAY) == pdTRUE) {
+    copy = globalHealthState;
+    xSemaphoreGive(healthStateMutex);
+  } else {
+    copy = globalHealthState;
+  }
+  return copy;
+}
 
 void printTaskStackDiagnostics() {
   static unsigned long lastDiag = 0;
@@ -220,9 +241,9 @@ void vTaskControl(void* pvParameters) {
     }
     bool isAutoMode = (mode == SystemMode::AUTOMATIC);
 
-    // D. Evaluate safety conditions using local readings copy (Zero Mutex Locking!)
+    // D. Evaluate safety conditions using local readings copy
     SystemHealthState healthState = safetyMonitorService.evaluate(lastReadings, isAutoMode);
-    globalHealthState = healthState;
+    setGlobalHealthState(healthState);
 
     // E. Mode logging
     if (isAutoMode) {
@@ -242,12 +263,16 @@ void vTaskControl(void* pvParameters) {
 // 3. TaskDisplay: Subscriber 2 -> Consumes streamed sensor data & renders OLED on Core 0
 void vTaskDisplay(void* pvParameters) {
   (void)pvParameters;
+  esp_task_wdt_add(NULL); // Register vTaskDisplay with Task Watchdog Timer
+
   TickType_t xLastWakeTime = xTaskGetTickCount();
   const TickType_t xFrequency = pdMS_TO_TICKS(200);
 
   static SensorDataMap lastDisplayReadings;
 
   for (;;) {
+    esp_task_wdt_reset(); // Feed Task Watchdog Timer
+
     // Check subscribed bits from Event Group
     if (systemEventGroup != NULL) {
       xEventGroupWaitBits(
@@ -272,7 +297,8 @@ void vTaskDisplay(void* pvParameters) {
     }
     bool isAutoMode = (mode == SystemMode::AUTOMATIC);
 
-    DisplayViewModel vm = greenhouseController.buildDisplayViewModel(isAutoMode, lastDisplayReadings, globalHealthState);
+    SystemHealthState currentHealth = getGlobalHealthState();
+    DisplayViewModel vm = greenhouseController.buildDisplayViewModel(isAutoMode, lastDisplayReadings, currentHealth);
     displayManager.render(vm);
 
     vTaskDelayUntil(&xLastWakeTime, xFrequency);
@@ -290,8 +316,9 @@ void setup() {
   controlSensorQueue = xQueueCreate(2, sizeof(SensorDataMap));
   displaySensorQueue = xQueueCreate(2, sizeof(SensorDataMap));
 
-  // Create Synchronization Mutex, Event Queue, and Event Group
+  // Create Synchronization Mutexes, Event Queue, and Event Group
   modeMutex = xSemaphoreCreateMutex();
+  healthStateMutex = xSemaphoreCreateMutex();
   buttonEventQueue = xQueueCreate(10, sizeof(ButtonEvent));
   systemEventGroup = xEventGroupCreate();
 
