@@ -1,4 +1,4 @@
-#include "drivers/HumiditySensor.h"
+#include "HumiditySensor.h"
 
 HumiditySensor::HumiditySensor(int pin, DHT* externalDht, uint8_t dhtType)
     : Sensor(pin, SensorType::HUMIDITY, "Humidity"), dht(nullptr), isExternalDht(false),

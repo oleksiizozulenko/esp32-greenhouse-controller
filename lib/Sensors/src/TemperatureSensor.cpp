@@ -1,4 +1,4 @@
-#include "drivers/TemperatureSensor.h"
+#include "TemperatureSensor.h"
 
 TemperatureSensor::TemperatureSensor(int pin, DHT* externalDht, uint8_t dhtType)
     : Sensor(pin, SensorType::TEMPERATURE, "Temperature"), dht(nullptr), isExternalDht(false),

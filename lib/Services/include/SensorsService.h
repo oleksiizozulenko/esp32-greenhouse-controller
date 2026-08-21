@@ -2,7 +2,7 @@
 #define SENSORS_SERVICE_H
 
 #include <Arduino.h>
-#include "../drivers/Sensor.h"
+#include "Sensor.h"
 
 static const size_t MAX_SENSOR_ENTRIES = 16;
 

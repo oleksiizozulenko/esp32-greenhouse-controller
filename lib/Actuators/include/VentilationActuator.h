@@ -18,7 +18,7 @@ namespace ESP32PWM {
 }
 #endif
 
-#include "../config.h"
+#include "config.h"
 #include "Actuator.h"
 
 class VentilationActuator : public Actuator {

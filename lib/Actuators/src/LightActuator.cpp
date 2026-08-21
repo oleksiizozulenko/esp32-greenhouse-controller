@@ -1,4 +1,4 @@
-#include "drivers/LightActuator.h"
+#include "LightActuator.h"
 
 LightActuator::LightActuator(int pin, int numPixels)
     : Actuator(pin, ActuatorType::LIGHT, "Light"),

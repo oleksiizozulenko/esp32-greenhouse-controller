@@ -2,8 +2,8 @@
 #include "../Arduino.h"
 #include "../MockActuator.h"
 #include "../MockSensor.h"
-#include "../../include/GreenhouseController.h"
-#include "../../include/services/SensorsService.h"
+#include "GreenhouseController.h"
+#include "SensorsService.h"
 
 static GreenhouseController* automation;
 static MockActuator* ventActuator;

@@ -1,4 +1,4 @@
-#include "drivers/LightSensor.h"
+#include "LightSensor.h"
 
 LightSensor::LightSensor(int pin)
     : Sensor(pin, SensorType::LIGHT, "Light"), lastLightLevel(NAN) {}
