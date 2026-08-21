@@ -1,4 +1,3 @@
-
 #ifndef SENSOR_H
 #define SENSOR_H
 
@@ -29,30 +28,16 @@ protected:
     }
 
 public:
-    Sensor(int pin, SensorType type = SensorType::UNKNOWN, const char* name = "Sensor", unsigned long readInterval = SENSOR_READ_INTERVAL)
-        : pin(pin), type(type), name(name), lastReadTime(0), readInterval(readInterval), filter(nullptr) {}
+    Sensor(int pin, SensorType type = SensorType::UNKNOWN, const char* name = "Sensor", unsigned long readInterval = SENSOR_READ_INTERVAL);
+    virtual ~Sensor();
 
-    virtual ~Sensor() {}
     virtual void init() = 0;
     virtual SensorData read() = 0;
     virtual const char* getUnit() const = 0;
 
-    void setFilter(ISensorFilter* newFilter) {
-        filter = newFilter;
-    }
-
-    ISensorFilter* getFilter() const {
-        return filter;
-    }
-
-    SensorData readProcessed() {
-        SensorData raw = read();
-        if (filter != nullptr) {
-            FilterResult res = filter->process(raw.value, raw.isError);
-            return { res.value, !res.isValid };
-        }
-        return raw;
-    }
+    void setFilter(ISensorFilter* newFilter);
+    ISensorFilter* getFilter() const;
+    SensorData readProcessed();
 
     int getPin() const { return pin; }
     SensorType getType() const { return type; }

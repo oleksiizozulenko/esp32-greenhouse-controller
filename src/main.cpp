@@ -1,3 +1,5 @@
+#ifndef UNIT_TEST
+
 #include <Arduino.h>
 #include "config.h"
 #include "drivers/Sensor.h"
@@ -339,3 +341,6 @@ void loop() {
   // FreeRTOS scheduler handles tasks. Delete default loop task to reclaim stack memory.
   vTaskDelete(NULL);
 }
+
+#endif // UNIT_TEST
+

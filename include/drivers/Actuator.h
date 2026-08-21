@@ -10,17 +10,17 @@ protected:
     ActuatorType type;
     const char* name;
 
-    Actuator(int pin, ActuatorType type = ActuatorType::UNKNOWN, const char* name = "Actuator") : pin(pin), type(type), name(name) {}
+    Actuator(int pin, ActuatorType type = ActuatorType::UNKNOWN, const char* name = "Actuator");
 
 public:
-    virtual ~Actuator() {}
+    virtual ~Actuator();
 
     virtual void init() = 0;
     virtual void turnOn() = 0;
     virtual void turnOff() = 0;
     virtual bool isOn() = 0;
 
-    virtual const char* getStatusText() { return isOn() ? "ON" : "OFF"; }
+    virtual const char* getStatusText();
 
     int getPin() const { return pin; }
     ActuatorType getType() const { return type; }

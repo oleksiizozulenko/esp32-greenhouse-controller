@@ -32,6 +32,10 @@
 #define DHT22 22
 #endif
 
+#ifndef F
+#define F(str) (str)
+#endif
+
 typedef void* QueueHandle_t;
 typedef void* SemaphoreHandle_t;
 typedef void* TimerHandle_t;
