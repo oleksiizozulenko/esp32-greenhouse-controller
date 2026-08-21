@@ -68,43 +68,23 @@ SensorData SensorDataMap::get(SensorType type) const {
 }
 
 // SensorsService methods
+SensorsService::SensorsService(unsigned long readInterval)
+    : sensors{}, sensorCount(0), lastReadTime(0), readInterval(readInterval) {}
+
 SensorsService::SensorsService(size_t initialCapacity, unsigned long readInterval)
-    : sensors(nullptr), capacity(0), sensorCount(0), lastReadTime(0), readInterval(readInterval) {
-    if (initialCapacity > 0) {
-        capacity = initialCapacity;
-        sensors = new Sensor*[capacity];
-    }
+    : sensors{}, sensorCount(0), lastReadTime(0), readInterval(readInterval) {
+    (void)initialCapacity;
 }
 
 SensorsService::SensorsService(Sensor** sensorList, size_t listCount, unsigned long readInterval)
-    : sensors(nullptr), capacity(0), sensorCount(0), lastReadTime(0), readInterval(readInterval) {
+    : sensors{}, sensorCount(0), lastReadTime(0), readInterval(readInterval) {
     for (size_t i = 0; i < listCount; ++i) {
         addSensor(sensorList[i]);
     }
 }
 
-SensorsService::~SensorsService() {
-    if (sensors != nullptr) {
-        delete[] sensors;
-        sensors = nullptr;
-    }
-}
-
 bool SensorsService::addSensor(Sensor* sensor) {
-    if (sensor == nullptr) return false;
-
-    if (sensorCount >= capacity) {
-        size_t newCapacity = (capacity == 0) ? 4 : capacity * 2;
-        Sensor** newSensors = new Sensor*[newCapacity];
-        for (size_t i = 0; i < sensorCount; ++i) {
-            newSensors[i] = sensors[i];
-        }
-        if (sensors != nullptr) {
-            delete[] sensors;
-        }
-        sensors = newSensors;
-        capacity = newCapacity;
-    }
+    if (sensor == nullptr || sensorCount >= MAX_SENSORS) return false;
     sensors[sensorCount++] = sensor;
     return true;
 }
