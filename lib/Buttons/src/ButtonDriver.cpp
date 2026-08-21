@@ -1,4 +1,5 @@
 #include "ButtonDriver.h"
+#include "config.h"
 
 uint8_t ButtonDriver::nextId = 1;
 
@@ -6,7 +7,7 @@ void IRAM_ATTR ButtonDriver::isrHandler(void* arg) {
     ButtonDriver* driver = static_cast<ButtonDriver*>(arg);
     if (driver != nullptr) {
         unsigned long now = millis();
-        if (now - driver->lastDebounceTime > BUTTON_DEBOUNCE_DELAY_MS) {
+        if (now - driver->lastDebounceTime > driver->debounceDelay) {
             driver->lastDebounceTime = now;
             
             if (driver->targetQueue != nullptr) {
@@ -25,8 +26,8 @@ void IRAM_ATTR ButtonDriver::isrHandler(void* arg) {
     }
 }
 
-ButtonDriver::ButtonDriver(int pin, ButtonType type)
-    : id(nextId++), pin(pin), type(type), lastDebounceTime(0), lastState(HIGH),
+ButtonDriver::ButtonDriver(int pin, ButtonType type, unsigned long debounceDelay)
+    : id(nextId++), pin(pin), type(type), debounceDelay(debounceDelay), lastDebounceTime(0), lastState(HIGH),
       targetQueue(nullptr), listener(nullptr) {}
 
 ButtonDriver::~ButtonDriver() {}
@@ -47,4 +48,22 @@ void ButtonDriver::attachInterruptHandler(QueueHandle_t queue) {
 
 bool ButtonDriver::isPressed() {
     return digitalRead(pin) == LOW;
+}
+
+bool ButtonDriver::wasPressed() {
+    int currentState = digitalRead(pin);
+    bool pressed = false;
+    if (currentState == LOW) {
+        if (lastState == HIGH) {
+            unsigned long now = millis();
+            if (now - lastDebounceTime >= debounceDelay) {
+                lastDebounceTime = now;
+                pressed = true;
+                lastState = LOW;
+            }
+        }
+    } else {
+        lastState = HIGH;
+    }
+    return pressed;
 }
