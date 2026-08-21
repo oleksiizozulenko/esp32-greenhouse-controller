@@ -1,7 +1,7 @@
 # Design Document: Safety Monitor & GreenhouseController Architecture
 
 ## 1. Overview & Purpose
-This document specifies the architectural refactoring of the former automation logic into `GreenhouseController` (`include/GreenhouseController.h`), the introduction of `SafetyMonitorService` (`include/services/SafetyMonitorService.h`), the update of sensor and actuator drivers to use `SensorType`/`ActuatorType` identities, and the creation of a decoupled View Renderer `DisplayManager` (`include/services/DisplayManager.h`) consuming `DisplayViewModel` (`include/ui/DisplayViewModel.h`).
+This document specifies the architectural refactoring of the former automation logic into `GreenhouseController` (`lib/Controller/include/GreenhouseController.h`), the introduction of `SafetyMonitorService` (`lib/Services/include/SafetyMonitorService.h`), the update of sensor and actuator drivers to use `SensorType`/`ActuatorType` identities, and the creation of a decoupled View Renderer `DisplayManager` (`lib/Services/include/DisplayManager.h`) consuming `DisplayViewModel` (`lib/Services/include/DisplayViewModel.h`).
 
 ---
 

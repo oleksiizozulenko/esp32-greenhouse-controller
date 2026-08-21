@@ -30,14 +30,16 @@ The **ESP32 Smart Greenhouse Controller** continuously monitors critical environ
 - **Autonomous Climate Control**: Automatic triggering of ventilation, irrigation, and supplemental lighting based on customizable thresholds with hysteresis prevention.
 - **Manual Override Mode**: Advisory-only safety policy in manual mode; critical hazards still raise alarms while the operator retains full manual actuator control using dedicated push-buttons.
 - **Diagnostics & Safety**: Dual LED indicators (`LED_GREEN` for nominal operation, `LED_RED` for sensor errors) and acoustic alerts (`Buzzer`) for emergency states.
-- **Visual Feedback**: Real-time sensor metrics and status displayed on an I2C OLED display (SSD1306) managed by [DisplayManager](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/include/services/DisplayManager.h).
-- **Extensible Architecture**: Modular driver abstraction designed for easy integration of additional sensors, relays, and wireless telemetry interfaces.
+- **Visual Feedback**: Real-time sensor metrics and status displayed on an I2C OLED display (SSD1306) managed by [DisplayManager](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/lib/Services/include/DisplayManager.h).
+- **FreeRTOS Dual-Core Thread Safety**: `healthStateMutex` synchronizes cross-core data exchange between Core 1 (`vTaskControl`) and Core 0 (`vTaskDisplay`).
+- **Zero Runtime Heap Churn**: Static fixed-size allocation (`MAX_SENSORS = 16`, `MAX_ACTUATORS = 16`) eliminates memory fragmentation and OOM crashes.
+- **Modular PlatformIO `lib/` Architecture**: Driver declarations (`.h`) and implementations (`.cpp`) are strictly separated into self-contained static libraries inside `lib/`.
 
 ---
 
 ## 🔌 Actual Hardware Implementation & Pinout
 
-The system is configured around the ESP32 board pinout defined in [config.h](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/include/config.h):
+The system is configured around the ESP32 board pinout defined in [include/config.h](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/include/config.h):
 
 ### Inputs (Sensors & Buttons)
 
@@ -78,41 +80,45 @@ The system is configured around the ESP32 board pinout defined in [config.h](fil
 
 ## 🧠 Firmware Architecture & Software Services
 
-The controller firmware uses a clean object-oriented architecture split into driver abstractions and system services:
+The controller firmware uses a clean modular architecture split into self-contained libraries inside PlatformIO's [`lib/`](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/lib) folder, with strict separation between `.h` declarations and `.cpp` implementations:
 
-```
+```text
 src/
-└── main.cpp                        # System lifecycle & main loop orchestration
+└── main.cpp                        # Application entrypoint & FreeRTOS task composition
 include/
-├── config.h                        # Pin definitions, thresholds & system constants
-├── drivers/
-│   ├── Sensor.h                    # Base polymorphic interface for sensors with typed SensorType identity
-│   ├── Actuator.h                  # Base polymorphic interface for actuators with typed ActuatorType identity
-│   ├── ButtonDriver.h              # Hardware debouncing & state detection driver
-│   ├── HumiditySensor.h            # DHT22 humidity sensor implementation
-│   ├── TemperatureSensor.h         # DHT22 temperature sensor implementation
-│   ├── SoilSensor.h                # Capacitive soil moisture sensor implementation
-│   ├── LightSensor.h               # LDR light sensor implementation
-│   ├── IrrigationActuator.h        # Irrigation pump driver implementation
-│   ├── LightActuator.h             # Growth light driver implementation
-│   └── VentilationActuator.h       # Servo-driven window vent implementation
-└── services/
-    ├── SensorsService.h            # Polling registry & dataset aggregation service
-    ├── AutomationService.h         # Decision matrix & manual override service
-    └── DisplayManager.h            # OLED UI rendering manager
+└── config.h                        # Central pin definitions, thresholds & constants
+lib/
+├── Actuators/                      # Actuator Abstraction & Hardware Drivers
+│   ├── include/ (Actuator.h, VentilationActuator.h, IrrigationActuator.h, LightActuator.h)
+│   └── src/     (Actuator.cpp, VentilationActuator.cpp, IrrigationActuator.cpp, LightActuator.cpp)
+├── Sensors/                        # Sensor Abstraction & Hardware Drivers
+│   ├── include/ (Sensor.h, HumiditySensor.h, SoilSensor.h, TemperatureSensor.h, LightSensor.h)
+│   └── src/     (Sensor.cpp, HumiditySensor.cpp, SoilSensor.cpp, TemperatureSensor.cpp, LightSensor.cpp)
+├── Buttons/                        # Button Driver & ISR Event Handlers
+│   ├── include/ (ButtonDriver.h, ButtonEvent.h, ButtonType.h, IButtonListener.h)
+│   └── src/     (ButtonDriver.cpp)
+├── Filters/                        # Signal Processing & Noise Filters
+│   ├── include/ (ISensorFilter.h, MedianFilter.h, KaufmanFilter.h, SlewRateLimiter.h, CompositeFilter.h)
+│   └── src/     (SlewRateLimiter.cpp, CompositeFilter.cpp)
+├── Services/                       # Application Domain Services
+│   ├── include/ (SensorsService.h, SafetyMonitorService.h, DisplayManager.h, DisplayViewModel.h)
+│   └── src/     (SensorsService.cpp, SafetyMonitorService.cpp, DisplayManager.cpp)
+└── Controller/                     # State Machine & Control Rules
+    ├── include/ (GreenhouseController.h)
+    └── src/     (GreenhouseController.cpp)
 ```
 
 ### Core Services:
-- **[SensorsService](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/include/services/SensorsService.h)**: Polling manager that samples registered sensors periodically (`SENSOR_READ_INTERVAL`), packages values into a centralized `SensorDataMap`, and uses fixed inline storage for zero loop-time heap churn.
-- **[SafetyMonitorService](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/include/services/SafetyMonitorService.h)**: Evaluates typed `SensorType` readings against domain thresholds and produces `SystemHealthState` for advisory/alarm handling.
-- **[GreenhouseController](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/include/GreenhouseController.h)**: Drives automatic actuator logic or manual button toggles using typed `ActuatorType` identity, with a sticky debounced mode button switching between `MANUAL` and `AUTOMATIC`.
-- **[DisplayManager](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/include/services/DisplayManager.h)**: Renders live metrics, current active mode, and error banners on the 128x64 SSD1306 OLED screen.
+- **[SensorsService](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/lib/Services/include/SensorsService.h)**: Polling manager that samples registered sensors periodically (`SENSOR_READ_INTERVAL`), packages values into a static `SensorDataMap`, and uses fixed inline storage (`MAX_SENSORS = 16`) for zero heap churn.
+- **[SafetyMonitorService](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/lib/Services/include/SafetyMonitorService.h)**: Evaluates typed `SensorType` readings against domain thresholds and produces `SystemHealthState` for advisory/alarm handling.
+- **[GreenhouseController](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/lib/Controller/include/GreenhouseController.h)**: Drives automatic actuator logic or manual button toggles using typed `ActuatorType` identity (`MAX_ACTUATORS = 16`), with a sticky debounced mode button switching between `MANUAL` and `AUTOMATIC`.
+- **[DisplayManager](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/lib/Services/include/DisplayManager.h)**: Renders live metrics, current active mode, and error banners on the 128x64 SSD1306 OLED screen.
 
 ---
 
 ## ⚙️ Control Logic & Hysteresis Algorithms
 
-To prevent rapid relay switching or servo chatter when sensor readings hover near threshold boundaries, the system incorporates hysteresis margins defined in [config.h](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/include/config.h):
+To prevent rapid relay switching or servo chatter when sensor readings hover near threshold boundaries, the system incorporates hysteresis margins defined in [include/config.h](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/include/config.h):
 
 1. **Temperature & Ventilation Control**:
    - **Turn ON (Open Vent)**: `Temperature > 28.0°C` (`TEMP_THRESHOLD_HIGH`) $\rightarrow$ Servo opens window to $90^\circ$.
@@ -123,8 +129,8 @@ To prevent rapid relay switching or servo chatter when sensor readings hover nea
    - **Turn OFF (Stop Watering)**: `Soil Moisture > 35%` (`SOIL_DRY_THRESHOLD + SOIL_HYSTERESIS`) $\rightarrow$ Deactivate irrigation pump.
 
 3. **Ambient Light & Growth Lighting**:
-   - **Turn ON (Light ON)**: `Light Level < 500` (`LIGHT_DARK_THRESHOLD`) $\rightarrow$ Turn ON growth lighting strip.
-   - **Turn OFF (Light OFF)**: `Light Level > 550` (`LIGHT_DARK_THRESHOLD + LIGHT_HYSTERESIS`) $\rightarrow$ Turn OFF growth lighting strip.
+   - **Turn ON (Light ON)**: `Light Level < 3000 lx` (`LIGHT_DARK_THRESHOLD`) $\rightarrow$ Turn ON growth lighting strip.
+   - **Turn OFF (Light OFF)**: `Light Level > 3500 lx` (`LIGHT_DARK_THRESHOLD + LIGHT_HYSTERESIS`) $\rightarrow$ Turn OFF growth lighting strip.
 
 ---
 
@@ -133,18 +139,18 @@ To prevent rapid relay switching or servo chatter when sensor readings hover nea
 System mode is determined by the state of the Mode Button (`PIN_BTN_MODE`):
 
 - **Automatic Mode (`SystemMode::AUTOMATIC`)**:
-  - The [GreenhouseController](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/include/GreenhouseController.h) autonomously controls ventilation, irrigation, and lighting based on typed sensor readings.
+  - The [GreenhouseController](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/lib/Controller/include/GreenhouseController.h) autonomously controls ventilation, irrigation, and lighting based on typed sensor readings.
   - High-temperature or dry-soil warnings trigger the acoustic alert (`Buzzer`).
 
 - **Manual Mode (`SystemMode::MANUAL`)**:
   - Automatic threshold triggers are bypassed.
   - Users can manually toggle irrigation, ventilation, and lighting on/off using the dedicated hardware push-buttons (`PIN_BTN_IRRIG`, `PIN_BTN_VENT`, `PIN_BTN_LIGHT`).
   - Critical hazards remain advisory/alarm-only in manual mode while the operator keeps direct actuator control.
-  - The mode push-button uses sticky debounced toggling so each press flips between manual and automatic state.
+  - Safety timers automatically auto-shutoff manually triggered actuators after designated safety intervals (`IRRIGATION_TIMEOUT_MS = 10000`, `VENTILATION_TIMEOUT_MS = 30000`, `LIGHT_TIMEOUT_MS = 60000`).
 
 ---
 
-## 🛠️ Building & Wokwi Simulation
+## 🛠️ Building & Unit Testing
 
 ### Building with PlatformIO
 
@@ -159,9 +165,12 @@ pio run --target upload
 pio device monitor
 ```
 
-### Wokwi Simulator Integration
+### Running Native Unit Tests
 
-The project contains complete Wokwi configuration files ([wokwi.toml](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/wokwi.toml) and [diagram.json](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/diagram.json)) to simulate the ESP32 controller, sensors, OLED display, servo motor, and push-buttons directly in the browser or VS Code.
+```bash
+# Run native Desktop C++ unit tests (68 test cases across 5 test suites)
+pio test -e native
+```
 
 ---
 
@@ -179,28 +188,31 @@ The current architecture provides a robust foundation for future expansions:
 - **Automated Fertigation (Nutrient Dosing)**: Integrate pH and EC (Electro-Conductivity) sensors with peristaltic pumps for automated liquid fertilizer injection into the irrigation line.
 - **CO2 Monitoring & Enrichment**: Add NDIR CO2 sensors (e.g. MH-Z19B) to control CO2 generator relays during peak photosynthetic hours.
 
-### 3. Hardware & Power Management
-- **Real-Time Clock (DS3231 RTC)**: Maintain precise photoperiod schedules (e.g. 16h light / 8h dark) independent of ambient light sensor fluctuations.
-- **Non-Volatile Storage (NVS / EEPROM)**: Save threshold parameters dynamically adjusted via Web UI so they persist across power reboots.
-- **Solar & Deep Sleep Optimization**: Leverage ESP32 Deep Sleep modes (`esp_deep_sleep_start()`) during nighttime intervals for battery/solar powered off-grid installations.
-- **Over-The-Air (OTA) Firmware Updates**: Enable wireless firmware updates (`ArduinoOTA` or ElegantOTA) without requiring a USB connection.
-
 ---
 
 ## 📁 File Structure
 
-```
+```text
 .
-├── 1785500663274.png       # Conceptual Architectural Illustration
-├── README.md               # Actual Project Documentation & Specifications
+├── README.md               # Firmware Specifications & Documentation
 ├── platformio.ini          # PlatformIO environment & build configuration
 ├── diagram.json            # Wokwi simulation diagram setup
 ├── wokwi.toml              # Wokwi simulation settings
-├── include/                # Header files and service interfaces
-│   ├── config.h
-│   ├── drivers/
-│   └── services/
-└── src/
-    └── main.cpp            # Application entry point & setup/loop routines
+├── include/                # Global configuration & pin definitions
+│   └── config.h
+├── lib/                    # Modular PlatformIO Libraries
+│   ├── Actuators/
+│   ├── Sensors/
+│   ├── Buttons/
+│   ├── Filters/
+│   ├── Services/
+│   └── Controller/
+├── src/                    # Application Entrypoint & RTOS Tasks
+│   └── main.cpp
+└── test/                   # Native Unit Test Suites
+    ├── test_buttons/
+    ├── test_drivers/
+    ├── test_filters/
+    ├── test_greenhouse_controller/
+    └── test_sensors_service/
 ```
-
