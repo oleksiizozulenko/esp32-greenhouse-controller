@@ -2,8 +2,10 @@
 #define GREENHOUSE_CONTROLLER_H
 
 #include <Arduino.h>
+#ifndef UNIT_TEST
 #include <freertos/FreeRTOS.h>
 #include <freertos/timers.h>
+#endif
 #include "config.h"
 #include "drivers/Actuator.h"
 #include "drivers/buttons/ButtonDriver.h"

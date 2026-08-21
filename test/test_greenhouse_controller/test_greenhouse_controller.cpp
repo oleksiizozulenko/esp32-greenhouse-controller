@@ -324,14 +324,6 @@ void test_mode_toggle_is_sticky(void) {
 }
 
 void test_manual_mode_button_toggles(void) {
-    ButtonDriver btnIrrig(PIN_BTN_IRRIG, ButtonType::IRRIGATION);
-    ButtonDriver btnVent(PIN_BTN_VENT, ButtonType::VENTILATION);
-    ButtonDriver btnLight(PIN_BTN_LIGHT, ButtonType::LIGHT);
-
-    btnIrrig.setListener(automation);
-    btnVent.setListener(automation);
-    btnLight.setListener(automation);
-
     SensorDataMap readings(0);
 
     // Initial state all off
@@ -340,69 +332,44 @@ void test_manual_mode_button_toggles(void) {
     TEST_ASSERT_FALSE(lightActuator->isOn());
 
     // --- Irrigation Button Press 1 (Turn ON) ---
-    pressButton(btnIrrig, PIN_BTN_IRRIG);
-    btnIrrig.checkEvent();
+    automation->onButtonPressed(ButtonType::IRRIGATION);
     automation->update(false, readings);
     TEST_ASSERT_TRUE(irrigActuator->isOn());
 
-    // Irrigation Button Release
-    releaseButton(btnIrrig, PIN_BTN_IRRIG);
-
     // --- Irrigation Button Press 2 (Turn OFF) ---
-    pressButton(btnIrrig, PIN_BTN_IRRIG);
-    btnIrrig.checkEvent();
+    automation->onButtonPressed(ButtonType::IRRIGATION);
     automation->update(false, readings);
     TEST_ASSERT_FALSE(irrigActuator->isOn());
 
-    // Irrigation Button Release
-    releaseButton(btnIrrig, PIN_BTN_IRRIG);
-
     // --- Ventilation Button Press (Turn ON) ---
-    pressButton(btnVent, PIN_BTN_VENT);
-    btnVent.checkEvent();
+    automation->onButtonPressed(ButtonType::VENTILATION);
     automation->update(false, readings);
     TEST_ASSERT_TRUE(ventActuator->isOn());
 
     // --- Light Button Press (Turn ON) ---
-    pressButton(btnLight, PIN_BTN_LIGHT);
-    btnLight.checkEvent();
+    automation->onButtonPressed(ButtonType::LIGHT);
     automation->update(false, readings);
     TEST_ASSERT_TRUE(lightActuator->isOn());
 }
 
 void test_manual_mode_button_override_under_critical_hazard(void) {
-    ButtonDriver btnVent(PIN_BTN_VENT, ButtonType::VENTILATION);
-    btnVent.setListener(automation);
-
     // Temp is 59°C (> 45°C critical overheat)
     tempSensor->setData(59.0f, false);
     SensorDataMap readings(1);
     readings[0] = {tempSensor, tempSensor->read()};
 
     // In MANUAL mode, user presses ventilation button -> MUST open ventilation unconditionally
-    pressButton(btnVent, PIN_BTN_VENT);
-    btnVent.checkEvent();
+    automation->onButtonPressed(ButtonType::VENTILATION);
     automation->update(false, readings);
     TEST_ASSERT_TRUE(ventActuator->isOn());
 
-    releaseButton(btnVent, PIN_BTN_VENT);
-
     // User presses ventilation button again -> MUST close ventilation unconditionally
-    pressButton(btnVent, PIN_BTN_VENT);
-    btnVent.checkEvent();
+    automation->onButtonPressed(ButtonType::VENTILATION);
     automation->update(false, readings);
     TEST_ASSERT_FALSE(ventActuator->isOn());
 }
 
 void test_auto_mode_supports_manual_button_overrides(void) {
-    ButtonDriver btnVent(PIN_BTN_VENT, ButtonType::VENTILATION);
-    ButtonDriver btnIrrig(PIN_BTN_IRRIG, ButtonType::IRRIGATION);
-    ButtonDriver btnLight(PIN_BTN_LIGHT, ButtonType::LIGHT);
-
-    btnVent.setListener(automation);
-    btnIrrig.setListener(automation);
-    btnLight.setListener(automation);
-
     // Normal safe sensor readings in AUTO mode
     tempSensor->setData(22.0f, false);
     soilSensor->setData(50.0f, false);
@@ -416,13 +383,9 @@ void test_auto_mode_supports_manual_button_overrides(void) {
     automation->update(true, readings);
 
     // User presses buttons during AUTO mode to override actuator states
-    pressButton(btnVent, PIN_BTN_VENT);
-    pressButton(btnIrrig, PIN_BTN_IRRIG);
-    pressButton(btnLight, PIN_BTN_LIGHT);
-
-    btnVent.checkEvent();
-    btnIrrig.checkEvent();
-    btnLight.checkEvent();
+    automation->onButtonPressed(ButtonType::VENTILATION);
+    automation->onButtonPressed(ButtonType::IRRIGATION);
+    automation->onButtonPressed(ButtonType::LIGHT);
 
     // In AUTO mode, user button presses enable actuators as manual overrides
     TEST_ASSERT_TRUE(ventActuator->isOn());
@@ -712,6 +675,7 @@ void test_timer_reuse_on_multiple_manual_presses(void) {
 }
 
 void test_system_under_high_load_stress(void) {
+    SafetyMonitorService safetyMonitor;
     // Perform 1000 rapid cycles of mode toggles, button presses, sensor updates, and timer expirations
     for (int i = 0; i < 1000; i++) {
         // 1. Rapid button presses
@@ -723,14 +687,14 @@ void test_system_under_high_load_stress(void) {
         // 2. Rapid sensor updates with varying values
         float temp = (i % 2 == 0) ? 38.0f : 22.0f;
         float soil = (i % 3 == 0) ? 15.0f : 55.0f;
-        setMockSensorData(tempSensor, temp, false);
-        setMockSensorData(soilMoistureSensor, soil, false);
+        tempSensor->setData(temp, false);
+        soilSensor->setData(soil, false);
 
-        SensorDataMap readings;
-        readings.push_back({tempSensor, tempSensor->read()});
-        readings.push_back({soilMoistureSensor, soilMoistureSensor->read()});
+        SensorDataMap readings(2);
+        readings[0] = {tempSensor, tempSensor->read()};
+        readings[1] = {soilSensor, soilSensor->read()};
 
-        SystemHealthState health = safetyMonitor->evaluate(readings, true);
+        SystemHealthState health = safetyMonitor.evaluate(readings, true);
         automation->update(true, readings, health);
 
         // 3. Trigger active timers

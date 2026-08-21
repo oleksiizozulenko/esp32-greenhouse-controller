@@ -1,6 +1,7 @@
 #include <unity.h>
 #include "../Arduino.h"
 #include "../../include/drivers/buttons/ButtonDriver.h"
+#include "../../src/drivers/buttons/ButtonDriver.cpp"
 
 // Definition of global buttonEventQueue stub for unit test environment
 QueueHandle_t buttonEventQueue = nullptr;
