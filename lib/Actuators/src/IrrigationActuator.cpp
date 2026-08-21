@@ -1,4 +1,4 @@
-#include "drivers/IrrigationActuator.h"
+#include "IrrigationActuator.h"
 
 IrrigationActuator::IrrigationActuator(int pin, int numPixels)
     : Actuator(pin, ActuatorType::IRRIGATION, "Irrigation"),

@@ -1,7 +1,7 @@
 #ifndef MOCK_SENSOR_H
 #define MOCK_SENSOR_H
 
-#include "../include/drivers/Sensor.h"
+#include "Sensor.h"
 
 class MockSensor : public Sensor {
 private:

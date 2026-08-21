@@ -1,4 +1,4 @@
-#include "drivers/SoilSensor.h"
+#include "SoilSensor.h"
 
 SoilSensor::SoilSensor(int pin)
     : Sensor(pin, SensorType::SOIL, "Soil"), lastSoilMoisture(NAN) {}

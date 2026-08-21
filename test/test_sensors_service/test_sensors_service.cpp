@@ -2,7 +2,7 @@
 #include <cstdlib>
 #include "../Arduino.h"
 #include "../MockSensor.h"
-#include "../../include/services/SensorsService.h"
+#include "SensorsService.h"
 
 static size_t gAllocationCount = 0;
 

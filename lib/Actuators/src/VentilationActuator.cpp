@@ -1,4 +1,4 @@
-#include "drivers/VentilationActuator.h"
+#include "VentilationActuator.h"
 
 VentilationActuator::VentilationActuator(int pin, int openAngle, int closeAngle)
     : Actuator(pin, ActuatorType::VENTILATION, "Ventilation"), active(false), openAngle(openAngle), closeAngle(closeAngle) {}

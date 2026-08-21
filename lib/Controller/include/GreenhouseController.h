@@ -7,11 +7,11 @@
 #include <freertos/timers.h>
 #endif
 #include "config.h"
-#include "drivers/Actuator.h"
-#include "drivers/buttons/ButtonDriver.h"
-#include "ui/DisplayViewModel.h"
-#include "services/SensorsService.h"
-#include "services/SafetyMonitorService.h"
+#include "Actuator.h"
+#include "ButtonDriver.h"
+#include "DisplayViewModel.h"
+#include "SensorsService.h"
+#include "SafetyMonitorService.h"
 
 class GreenhouseController : public IButtonListener {
 public:

@@ -2,9 +2,9 @@
 #include "../Arduino.h"
 #include "../MockSensor.h"
 #include "../MockActuator.h"
-#include "../../include/drivers/TemperatureSensor.h"
-#include "../../include/drivers/HumiditySensor.h"
-#include "../../include/drivers/LightSensor.h"
+#include "TemperatureSensor.h"
+#include "HumiditySensor.h"
+#include "LightSensor.h"
 
 void setUp(void) {
     resetMockArduinoState();

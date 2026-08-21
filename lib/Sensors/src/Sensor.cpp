@@ -1,4 +1,4 @@
-#include "drivers/Sensor.h"
+#include "Sensor.h"
 
 Sensor::Sensor(int pin, SensorType type, const char* name, unsigned long readInterval)
     : pin(pin), type(type), name(name), lastReadTime(0), readInterval(readInterval), filter(nullptr) {}

@@ -3,11 +3,11 @@
 #include <math.h>
 #include "../Arduino.h"
 #include "../MockSensor.h"
-#include "../../include/filters/ISensorFilter.h"
-#include "../../include/filters/MedianFilter.h"
-#include "../../include/filters/SlewRateLimiter.h"
-#include "../../include/filters/KaufmanFilter.h"
-#include "../../include/filters/CompositeFilter.h"
+#include "ISensorFilter.h"
+#include "MedianFilter.h"
+#include "SlewRateLimiter.h"
+#include "KaufmanFilter.h"
+#include "CompositeFilter.h"
 
 static size_t gAllocationCount = 0;
 

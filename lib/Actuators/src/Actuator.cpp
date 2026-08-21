@@ -1,4 +1,4 @@
-#include "drivers/Actuator.h"
+#include "Actuator.h"
 
 Actuator::Actuator(int pin, ActuatorType type, const char* name)
     : pin(pin), type(type), name(name) {}

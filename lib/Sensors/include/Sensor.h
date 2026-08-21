@@ -2,8 +2,8 @@
 #define SENSOR_H
 
 #include <Arduino.h>
-#include "../config.h"
-#include "../filters/ISensorFilter.h"
+#include "config.h"
+#include "ISensorFilter.h"
 
 struct SensorData {
     float value;

@@ -1,7 +1,7 @@
 #ifndef MOCK_ACTUATOR_H
 #define MOCK_ACTUATOR_H
 
-#include "../include/drivers/Actuator.h"
+#include "Actuator.h"
 
 class MockActuator : public Actuator {
 private:

@@ -1,5 +1,5 @@
-#ifndef IRRIGATION_ACTUATOR_H
-#define IRRIGATION_ACTUATOR_H
+#ifndef LIGHT_ACTUATOR_H
+#define LIGHT_ACTUATOR_H
 
 #include <Arduino.h>
 
@@ -24,16 +24,16 @@ public:
 };
 #endif
 
-#include "../config.h"
+#include "config.h"
 #include "Actuator.h"
 
-class IrrigationActuator : public Actuator {
+class LightActuator : public Actuator {
 private:
     Adafruit_NeoPixel pixels;
     bool active;
 
 public:
-    IrrigationActuator(int pin = PIN_LED_RING, int numPixels = NUM_PIXELS_RING);
+    LightActuator(int pin = PIN_LED_STRIP, int numPixels = NUM_PIXELS_STRIP);
 
     void init() override;
     void turnOn() override;
@@ -41,4 +41,4 @@ public:
     bool isOn() override;
 };
 
-#endif // IRRIGATION_ACTUATOR_H
+#endif // LIGHT_ACTUATOR_H
