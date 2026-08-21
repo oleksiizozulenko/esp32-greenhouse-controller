@@ -2,7 +2,15 @@
 #define ACTUATOR_H
 
 #include <Arduino.h>
-#include "config.h"
+
+
+enum class ActuatorType {
+    UNKNOWN = 0,
+    VENTILATION,
+    IRRIGATION,
+    LIGHT
+};
+
 
 class Actuator {
 protected:

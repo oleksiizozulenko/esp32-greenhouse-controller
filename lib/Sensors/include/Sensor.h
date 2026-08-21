@@ -5,6 +5,14 @@
 #include "config.h"
 #include "ISensorFilter.h"
 
+enum class SensorType {
+    UNKNOWN = 0,
+    TEMPERATURE,
+    HUMIDITY,
+    SOIL,
+    LIGHT
+};
+
 struct SensorData {
     float value;
     bool isError;
