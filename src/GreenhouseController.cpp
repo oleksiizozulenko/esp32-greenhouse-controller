@@ -11,81 +11,30 @@ void GreenhouseController::vActuatorTimerCallback(TimerHandle_t xTimer) {
     }
 }
 
-bool GreenhouseController::addActuatorTimer(ActuatorTimer* timerObj) {
-    if (timerObj == nullptr) return false;
-
-    if (timerCount >= timerCapacity) {
-        size_t newCapacity = (timerCapacity == 0) ? 4 : timerCapacity * 2;
-        ActuatorTimer** newTimers = new ActuatorTimer*[newCapacity];
-        for (size_t i = 0; i < timerCount; ++i) {
-            newTimers[i] = timers[i];
-        }
-        for (size_t i = timerCount; i < newCapacity; ++i) {
-            newTimers[i] = nullptr;
-        }
-        if (timers != nullptr) {
-            delete[] timers;
-        }
-        timers = newTimers;
-        timerCapacity = newCapacity;
-    }
-    timers[timerCount++] = timerObj;
-    return true;
-}
-
 GreenhouseController::GreenhouseController(size_t initialCapacity, int redLed, int greenLed, int buzzer)
-    : actuators(nullptr), capacity(0), actuatorCount(0),
-      timers(nullptr), timerCapacity(0), timerCount(0),
+    : actuators{}, actuatorCount(0), timers{}, timerCount(0),
       redLedPin(redLed), greenLedPin(greenLed), buzzerPin(buzzer) {
-    if (initialCapacity > 0) {
-        capacity = initialCapacity;
-        actuators = new Actuator*[capacity];
-        timerCapacity = initialCapacity;
-        timers = new ActuatorTimer*[timerCapacity];
-        for (size_t i = 0; i < timerCapacity; ++i) {
-            timers[i] = nullptr;
-        }
+    (void)initialCapacity;
+    for (size_t i = 0; i < MAX_ACTUATORS; ++i) {
+        actuators[i] = nullptr;
+        timers[i].active = false;
+        timers[i].timer = NULL;
     }
 }
 
 GreenhouseController::~GreenhouseController() {
-    if (actuators != nullptr) {
-        delete[] actuators;
-        actuators = nullptr;
-    }
-    if (timers != nullptr) {
-        for (size_t i = 0; i < timerCount; ++i) {
-            if (timers[i] != nullptr) {
-                if (timers[i]->timer != NULL) {
-                    xTimerStop(timers[i]->timer, 0);
-                    xTimerDelete(timers[i]->timer, 0);
-                }
-                if (timers[i]->context != nullptr) {
-                    delete timers[i]->context;
-                }
-                delete timers[i];
-            }
+    for (size_t i = 0; i < timerCount; ++i) {
+        if (timers[i].active && timers[i].timer != NULL) {
+            xTimerStop(timers[i].timer, 0);
+            xTimerDelete(timers[i].timer, 0);
+            timers[i].timer = NULL;
+            timers[i].active = false;
         }
-        delete[] timers;
-        timers = nullptr;
     }
 }
 
 bool GreenhouseController::addActuator(Actuator* actuator) {
-    if (actuator == nullptr) return false;
-
-    if (actuatorCount >= capacity) {
-        size_t newCapacity = (capacity == 0) ? 4 : capacity * 2;
-        Actuator** newActuators = new Actuator*[newCapacity];
-        for (size_t i = 0; i < actuatorCount; ++i) {
-            newActuators[i] = actuators[i];
-        }
-        if (actuators != nullptr) {
-            delete[] actuators;
-        }
-        actuators = newActuators;
-        capacity = newCapacity;
-    }
+    if (actuator == nullptr || actuatorCount >= MAX_ACTUATORS) return false;
     actuators[actuatorCount++] = actuator;
     return true;
 }
@@ -110,10 +59,19 @@ Actuator* GreenhouseController::getActuator(ActuatorType type) const {
     return nullptr;
 }
 
-GreenhouseController::ActuatorTimer* GreenhouseController::getActuatorTimer(ActuatorType type) const {
+GreenhouseController::ActuatorTimer* GreenhouseController::getActuatorTimer(ActuatorType type) {
     for (size_t i = 0; i < timerCount; ++i) {
-        if (timers[i] != nullptr && timers[i]->type == type) {
-            return timers[i];
+        if (timers[i].active && timers[i].type == type) {
+            return &timers[i];
+        }
+    }
+    return nullptr;
+}
+
+const GreenhouseController::ActuatorTimer* GreenhouseController::getActuatorTimer(ActuatorType type) const {
+    for (size_t i = 0; i < timerCount; ++i) {
+        if (timers[i].active && timers[i].type == type) {
+            return &timers[i];
         }
     }
     return nullptr;
@@ -123,20 +81,21 @@ void GreenhouseController::startTimerFor(ActuatorType type, uint32_t timeoutMs) 
     ActuatorTimer* timerObj = getActuatorTimer(type);
     if (timerObj == nullptr) {
         Actuator* act = getActuator(type);
-        if (act == nullptr) return;
+        if (act == nullptr || timerCount >= MAX_ACTUATORS) return;
 
-        TimerContext* ctx = new TimerContext{this, type};
-        TimerHandle_t hTimer = xTimerCreate(
+        timerObj = &timers[timerCount++];
+        timerObj->type = type;
+        timerObj->timeoutMs = timeoutMs;
+        timerObj->context = TimerContext{this, type};
+        timerObj->timer = xTimerCreate(
             act->getName(),
             pdMS_TO_TICKS(timeoutMs),
             pdFALSE, // One-shot
-            (void*)ctx,
+            (void*)&timerObj->context,
             vActuatorTimerCallback
         );
-
-        if (hTimer != NULL) {
-            timerObj = new ActuatorTimer{type, hTimer, timeoutMs, ctx};
-            addActuatorTimer(timerObj);
+        if (timerObj->timer != NULL) {
+            timerObj->active = true;
         }
     }
 

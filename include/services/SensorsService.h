@@ -42,17 +42,20 @@ public:
 };
 
 class SensorsService {
+public:
+    static constexpr size_t MAX_SENSORS = 16;
+
 private:
-    Sensor** sensors;
-    size_t capacity;
+    Sensor* sensors[MAX_SENSORS];
     size_t sensorCount;
     unsigned long lastReadTime;
     const unsigned long readInterval;
 
 public:
-    SensorsService(size_t initialCapacity = 4, unsigned long readInterval = 2000);
+    explicit SensorsService(unsigned long readInterval = 2000);
+    SensorsService(size_t initialCapacity, unsigned long readInterval);
     SensorsService(Sensor** sensorList, size_t listCount, unsigned long readInterval = 2000);
-    ~SensorsService();
+    ~SensorsService() = default;
 
     SensorsService(const SensorsService&) = delete;
     SensorsService& operator=(const SensorsService&) = delete;

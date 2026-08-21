@@ -15,6 +15,8 @@
 
 class GreenhouseController : public IButtonListener {
 public:
+    static constexpr size_t MAX_ACTUATORS = 16;
+
     struct TimerContext {
         GreenhouseController* controller;
         ActuatorType actuatorType;
@@ -24,16 +26,15 @@ public:
         ActuatorType type;
         TimerHandle_t timer;
         uint32_t timeoutMs;
-        TimerContext* context;
+        TimerContext context;
+        bool active;
     };
 
 private:
-    Actuator** actuators;
-    size_t capacity;
+    Actuator* actuators[MAX_ACTUATORS];
     size_t actuatorCount;
 
-    ActuatorTimer** timers;
-    size_t timerCapacity;
+    ActuatorTimer timers[MAX_ACTUATORS];
     size_t timerCount;
 
     int redLedPin;
@@ -41,7 +42,6 @@ private:
     int buzzerPin;
 
     static void vActuatorTimerCallback(TimerHandle_t xTimer);
-    bool addActuatorTimer(ActuatorTimer* timerObj);
 
 public:
     GreenhouseController(size_t initialCapacity = 4,
@@ -57,7 +57,8 @@ public:
     size_t getActuatorCount() const;
     Actuator* getActuator(size_t index) const;
     Actuator* getActuator(ActuatorType type) const;
-    ActuatorTimer* getActuatorTimer(ActuatorType type) const;
+    ActuatorTimer* getActuatorTimer(ActuatorType type);
+    const ActuatorTimer* getActuatorTimer(ActuatorType type) const;
 
     void startTimerFor(ActuatorType type, uint32_t timeoutMs);
     void stopTimerFor(ActuatorType type);
