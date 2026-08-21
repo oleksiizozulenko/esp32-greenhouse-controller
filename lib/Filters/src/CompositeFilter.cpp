@@ -1,4 +1,4 @@
-#include "filters/CompositeFilter.h"
+#include "CompositeFilter.h"
 
 CompositeFilter::CompositeFilter(ISensorFilter** filterArray, size_t filterCount)
     : filters(filterArray), count(filterCount) {}

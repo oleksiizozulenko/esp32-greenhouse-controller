@@ -63,6 +63,8 @@ inline SystemMode toggleSystemMode(SystemMode currentMode) {
 #define SERVO_OPEN_ANGLE    90  // Ventilation servo open angle
 #define SERVO_CLOSE_ANGLE   0   // Ventilation servo close angle
 
+#define SCREEN_I2C_ADDR     0x3C // OLED I2C Address
+
 // ==========================================
 // 2. THRESHOLDS & HYSTERESIS
 // ==========================================
@@ -100,6 +102,11 @@ inline SystemMode toggleSystemMode(SystemMode currentMode) {
 #define CRITICAL_HUMIDITY_HIGH    85.0f      // Critical high humidity (>85%)
 #define CRITICAL_SOIL_HIGH        85.0f      // Overwatering (>85%)
 #define CRITICAL_SOIL_LOW         30.0f      // Dry soil (<30%)
+#define CRITICAL_SOIL_DRY         CRITICAL_SOIL_LOW
+
+// Operator Advisories
+#define ADV_HUMIDITY_HIGH         75.0f
+#define ADV_LIGHT_LOW            1000.0f
 
 // ==========================================
 // 3. SYSTEM TIMINGS
@@ -108,6 +115,7 @@ inline SystemMode toggleSystemMode(SystemMode currentMode) {
 #define SENSOR_READ_INTERVAL  2000  // Sensor polling interval (ms)
 #define OLED_REFRESH_INTERVAL 500   // Display refresh interval (ms)
 #define DEBOUNCE_DELAY        50    // Button debounce delay (ms)
+#define BUTTON_DEBOUNCE_DELAY_MS DEBOUNCE_DELAY
 
 // Actuator Safety Auto-Off Timings (ms)
 #define IRRIGATION_TIMEOUT_MS  10000 // 10s auto-shutoff

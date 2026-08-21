@@ -16,9 +16,9 @@ struct SystemHealthState {
 class SafetyMonitorService {
 public:
     SafetyMonitorService();
-    ~SafetyMonitorService();
+    ~SafetyMonitorService() = default;
 
-    SystemHealthState evaluate(const SensorDataMap& readings, bool isAutoMode);
+    SystemHealthState evaluate(const SensorDataMap& readings, bool isAutoMode) const;
 };
 
 #endif // SAFETY_MONITOR_SERVICE_H

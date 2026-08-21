@@ -14,14 +14,18 @@
 #ifndef WHITE
 #define WHITE 1
 #endif
+static int Wire = 0;
 class Adafruit_SSD1306 {
+private:
+    int16_t cursorY = 0;
 public:
     Adafruit_SSD1306(int w = 128, int h = 64, void* wire = nullptr, int rst = -1) {}
     bool begin(uint8_t switchvcc = 0, uint8_t i2caddr = 0) { return true; }
     void clearDisplay() {}
     void setTextSize(uint8_t s) {}
     void setTextColor(uint16_t c) {}
-    void setCursor(int16_t x, int16_t y) {}
+    void setCursor(int16_t x, int16_t y) { cursorY = y; }
+    int16_t getCursorY() const { return cursorY; }
     void print(const char* s) {}
     void printf(const char* fmt, ...) {}
     void drawLine(int16_t x0, int16_t y0, int16_t x1, int16_t y1, uint16_t color) {}
