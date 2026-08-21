@@ -2,7 +2,22 @@
 #define VENTILATION_ACTUATOR_H
 
 #include <Arduino.h>
+
+#ifndef UNIT_TEST
 #include <ESP32Servo.h>
+#else
+class Servo {
+public:
+    void setPeriodHertz(int) {}
+    void attach(int, int, int) {}
+    bool attached() { return true; }
+    void write(int) {}
+};
+namespace ESP32PWM {
+    inline void allocateTimer(int) {}
+}
+#endif
+
 #include "../config.h"
 #include "Actuator.h"
 
@@ -14,54 +29,15 @@ private:
     int closeAngle;
 
 public:
-    VentilationActuator(int pin, int openAngle = SERVO_OPEN_ANGLE, int closeAngle = SERVO_CLOSE_ANGLE)
-        : Actuator(pin, ActuatorType::VENTILATION, "Ventilation"), active(false), openAngle(openAngle), closeAngle(closeAngle) {}
+    VentilationActuator(int pin, int openAngle = SERVO_OPEN_ANGLE, int closeAngle = SERVO_CLOSE_ANGLE);
 
-    void init() override {
-        ESP32PWM::allocateTimer(0);
-        ESP32PWM::allocateTimer(1);
-        ESP32PWM::allocateTimer(2);
-        ESP32PWM::allocateTimer(3);
-        servo.setPeriodHertz(50);
-        servo.attach(pin, 500, 2400);
-        delay(250);
-        servo.write(closeAngle);
-        active = false;
-    }
-
-    void turnOn() override {
-        if (!servo.attached()) {
-            servo.attach(pin, 500, 2400);
-        }
-        servo.write(openAngle);
-        delay(150);
-        active = true;
-    }
-
-    void turnOff() override {
-        if (!servo.attached()) {
-            servo.attach(pin, 500, 2400);
-        }
-        servo.write(closeAngle);
-        delay(150);
-        active = false;
-    }
-
-    bool isOn() override {
-        return active;
-    }
-
-    const char* getStatusText() override {
-        return active ? "OPEN" : "CLOSE";
-    }
-
-    void open() {
-        turnOn();
-    }
-
-    void close() {
-        turnOff();
-    }
+    void init() override;
+    void turnOn() override;
+    void turnOff() override;
+    bool isOn() override;
+    const char* getStatusText() override;
+    void open();
+    void close();
 };
 
 #endif // VENTILATION_ACTUATOR_H
