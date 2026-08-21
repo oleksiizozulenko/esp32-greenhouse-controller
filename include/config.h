@@ -3,20 +3,8 @@
 
 #include <Arduino.h>
 
-enum class SensorType {
-    UNKNOWN = 0,
-    TEMPERATURE,
-    HUMIDITY,
-    SOIL,
-    LIGHT
-};
 
-enum class ActuatorType {
-    UNKNOWN = 0,
-    VENTILATION,
-    IRRIGATION,
-    LIGHT
-};
+
 
 enum class SystemMode {
     MANUAL = 0,
