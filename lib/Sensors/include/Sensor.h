@@ -52,6 +52,4 @@ public:
     const char* getName() const { return name; }
 };
 
-typedef Sensor ISensor;
-
 #endif // SENSOR_H
