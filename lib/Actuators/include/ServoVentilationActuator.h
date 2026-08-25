@@ -1,13 +1,13 @@
-#ifndef SERVO_POSITIONAL_ACTUATOR_H
-#define SERVO_POSITIONAL_ACTUATOR_H
+#ifndef SERVO_VENTILATION_ACTUATOR_H
+#define SERVO_VENTILATION_ACTUATOR_H
 
 #include <Arduino.h>
 #ifndef UNIT_TEST
 #include <ESP32Servo.h>
 #endif
-#include "Actuators/IPositionalActuator.h"
+#include "IPositionalActuator.h"
 
-class ServoPositionalActuator : public IPositionalActuator {
+class ServoVentilationActuator : public IPositionalActuator {
 private:
     int pin;
 #ifndef UNIT_TEST
@@ -16,10 +16,9 @@ private:
     float currentAngle;
     bool operating;
 
-
 public:
-    explicit ServoPositionalActuator(int gpioPin);
-    ~ServoPositionalActuator() override = default;
+    explicit ServoVentilationActuator(int gpioPin);
+    ~ServoVentilationActuator() override = default;
 
     bool begin() override;
     bool turnOff() override;
@@ -29,4 +28,4 @@ public:
     float getPositionPercent() const override;
 };
 
-#endif // SERVO_POSITIONAL_ACTUATOR_H
+#endif // SERVO_VENTILATION_ACTUATOR_H

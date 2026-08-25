@@ -1,7 +1,8 @@
 #ifndef HAL_IACTUATOR_H
 #define HAL_IACTUATOR_H
 
-#include "../CommonTypes.h"
+#include "CommonTypes.h"
+
 
 class IActuator {
 public:

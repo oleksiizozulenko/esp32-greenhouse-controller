@@ -1,0 +1,9 @@
+{
+  "name": "HAL",
+  "version": "1.0.0",
+  "description": "Hardware Abstraction Layer for ESP32 Greenhouse Controller",
+  "keywords": "HAL, drivers, sensors, actuators",
+  "frameworks": "arduino",
+  "platforms": "*"
+
+}

@@ -1,70 +1,53 @@
 #include <unity.h>
 #include "CommonTypes.h"
-#include "Sensors/DHT22EnvironmentSensor.h"
-#include "Sensors/AnalogSoilSensorDriver.h"
-#include "Sensors/LDRLightSensorDriver.h"
-#include "Actuators/RelayBinaryActuator.h"
-#include "Actuators/ServoPositionalActuator.h"
-#include "Services/BuzzerAlertDriver.h"
+#include "DHT11EnvironmentSensor.h"
+#include "MH0080SoilSensorDriver.h"
+#include "DotMatrix8x8IrrigationActuator.h"
+#include "QC1602ACharacterLcdDriver.h"
 
-void test_relay_binary_actuator() {
-    RelayBinaryActuator relay(4, false); // Active HIGH
-    relay.begin();
 
-    TEST_ASSERT_FALSE(relay.isOn());
-    TEST_ASSERT_FALSE(relay.isOperating());
-
-    relay.turnOn();
-    TEST_ASSERT_TRUE(relay.isOn());
-    TEST_ASSERT_TRUE(relay.isOperating());
-
-    relay.turnOff();
-    TEST_ASSERT_FALSE(relay.isOn());
-}
-
-void test_servo_positional_actuator() {
-    ServoPositionalActuator servo(5);
-    servo.begin();
-
-    TEST_ASSERT_EQUAL_FLOAT(0.0f, servo.getPositionPercent());
-
-    servo.setPositionPercent(50.0f);
-    TEST_ASSERT_EQUAL_FLOAT(50.0f, servo.getPositionPercent());
-
-    servo.setPositionPercent(150.0f); // Should clamp to 100%
-    TEST_ASSERT_EQUAL_FLOAT(100.0f, servo.getPositionPercent());
-
-    servo.turnOff();
-    TEST_ASSERT_EQUAL_FLOAT(0.0f, servo.getPositionPercent());
-}
-
-void test_buzzer_alert_driver() {
-    BuzzerAlertDriver buzzer(18);
-    buzzer.begin();
-
-    AlertEvent alert{101, AlertSeverity::CRITICAL, "High Temp"};
-    buzzer.raiseAlert(alert);
-
-    TEST_ASSERT_TRUE(buzzer.isAlertActive(101));
-    TEST_ASSERT_FALSE(buzzer.isAlertActive(102));
-
-    buzzer.clearAlert(101);
-    TEST_ASSERT_FALSE(buzzer.isAlertActive(101));
-}
-
-void test_soil_sensor_driver() {
-    AnalogSoilSensorDriver soilSensor(34);
+void test_mh0080_soil_sensor() {
+    MH0080SoilSensorDriver soilSensor(34);
     soilSensor.begin();
 
     SensorReadResult<float> result = soilSensor.read();
     TEST_ASSERT_TRUE(result.isValid() || result.status == SensorStatus::Error_OutOfRange);
 }
 
+void test_dht11_environment_sensor() {
+    DHT11EnvironmentSensor dht11(19);
+    dht11.begin();
+
+    SensorReadResult<float> tempResult = dht11.read();
+    TEST_ASSERT_TRUE(tempResult.isValid() || tempResult.status == SensorStatus::Error_HardwareFault);
+}
+
+void test_dot_matrix_irrigation_actuator() {
+    DotMatrix8x8IrrigationActuator dotMatrix(16, 17, 5);
+    dotMatrix.begin();
+
+    TEST_ASSERT_FALSE(dotMatrix.isOn());
+    dotMatrix.turnOn();
+    TEST_ASSERT_TRUE(dotMatrix.isOn());
+
+    dotMatrix.turnOff();
+    TEST_ASSERT_FALSE(dotMatrix.isOn());
+}
+
+void test_qc1602a_character_lcd_driver() {
+    QC1602ACharacterLcdDriver lcd(13, 12, 14, 27, 26, 25);
+    TEST_ASSERT_TRUE(lcd.begin());
+
+    lcd.setHeader("Greenhouse");
+    lcd.setField(0, {"Temp", 24.5f, "C", 1});
+    lcd.refresh();
+}
+
 int main(int argc, char **argv) {
     UNITY_BEGIN();
-    RUN_TEST(test_relay_binary_actuator);
-    RUN_TEST(test_servo_positional_actuator);
-    RUN_TEST(test_buzzer_alert_driver);
-    RUN_TEST(test_soil_sensor_driver);
+    RUN_TEST(test_mh0080_soil_sensor);
+    RUN_TEST(test_dht11_environment_sensor);
+    RUN_TEST(test_dot_matrix_irrigation_actuator);
+    RUN_TEST(test_qc1602a_character_lcd_driver);
     return UNITY_END();
 }

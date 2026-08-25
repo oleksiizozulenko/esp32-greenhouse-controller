@@ -1,16 +1,18 @@
-#include "DHT22EnvironmentSensor.h"
+#include "DHT11EnvironmentSensor.h"
 #include "config.h"
 
-DHT22EnvironmentSensor::DHT22EnvironmentSensor(int dataPin)
-    : pin(dataPin), dht(dataPin, DHT22), lastValidTemp(NAN), lastValidHum(NAN), lastReadTime(0) {}
 
-bool DHT22EnvironmentSensor::begin() {
+#ifndef UNIT_TEST
+DHT11EnvironmentSensor::DHT11EnvironmentSensor(int dataPin)
+    : pin(dataPin), dht(dataPin, DHT11), lastValidTemp(NAN), lastValidHum(NAN), lastReadTime(0) {}
+
+bool DHT11EnvironmentSensor::begin() {
     pinMode(pin, INPUT);
     dht.begin();
     return true;
 }
 
-SensorReadResult<float> DHT22EnvironmentSensor::read() {
+SensorReadResult<float> DHT11EnvironmentSensor::read() {
     uint32_t now = millis();
     float temp = dht.readTemperature();
     if (!isnan(temp)) {
@@ -25,7 +27,7 @@ SensorReadResult<float> DHT22EnvironmentSensor::read() {
     return {NAN, SensorStatus::Error_HardwareFault, now};
 }
 
-SensorReadResult<float> DHT22EnvironmentSensor::readHumidity() {
+SensorReadResult<float> DHT11EnvironmentSensor::readHumidity() {
     uint32_t now = millis();
     float hum = dht.readHumidity();
     if (!isnan(hum)) {
@@ -39,3 +41,11 @@ SensorReadResult<float> DHT22EnvironmentSensor::readHumidity() {
 
     return {NAN, SensorStatus::Error_HardwareFault, now};
 }
+#else
+DHT11EnvironmentSensor::DHT11EnvironmentSensor(int dataPin)
+    : pin(dataPin), lastValidTemp(24.0f), lastValidHum(55.0f), lastReadTime(0) {}
+
+bool DHT11EnvironmentSensor::begin() { return true; }
+SensorReadResult<float> DHT11EnvironmentSensor::read() { return {24.0f, SensorStatus::OK, 1000}; }
+SensorReadResult<float> DHT11EnvironmentSensor::readHumidity() { return {55.0f, SensorStatus::OK, 1000}; }
+#endif
