@@ -1,7 +1,8 @@
 #ifndef HAL_IDISPLAY_H
 #define HAL_IDISPLAY_H
 
-#include "../CommonTypes.h"
+#include "CommonTypes.h"
+
 
 class IDisplay {
 public:

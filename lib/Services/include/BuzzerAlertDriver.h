@@ -2,7 +2,7 @@
 #define BUZZER_ALERT_DRIVER_H
 
 #include <Arduino.h>
-#include "Services/IAlertService.h"
+#include "IAlertService.h"
 
 class BuzzerAlertDriver : public IAlertService {
 private:

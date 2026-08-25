@@ -1,7 +1,8 @@
 #ifndef HAL_IALERT_SERVICE_H
 #define HAL_IALERT_SERVICE_H
 
-#include "../CommonTypes.h"
+#include "CommonTypes.h"
+
 
 class IAlertService {
 public:
