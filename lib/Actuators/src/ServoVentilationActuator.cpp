@@ -1,9 +1,10 @@
-#include "VentilationActuator.h"
+#include "ServoVentilationActuator.h"
 
-VentilationActuator::VentilationActuator(int pin, int openAngle, int closeAngle)
-    : Actuator(pin, ActuatorType::VENTILATION, "Ventilation"), active(false), openAngle(openAngle), closeAngle(closeAngle) {}
+ServoVentilationActuator::ServoVentilationActuator(int gpioPin, int openAngle, int closeAngle)
+    : VentilationActuator(gpioPin, "Servo Ventilation"), active(false), openAngle(openAngle), closeAngle(closeAngle) {}
 
-void VentilationActuator::init() {
+void ServoVentilationActuator::init() {
+#ifndef UNIT_TEST
     ESP32PWM::allocateTimer(0);
     ESP32PWM::allocateTimer(1);
     ESP32PWM::allocateTimer(2);
@@ -12,39 +13,36 @@ void VentilationActuator::init() {
     servo.attach(pin, 500, 2400);
     delay(250);
     servo.write(closeAngle);
+#endif
     active = false;
 }
 
-void VentilationActuator::turnOn() {
+void ServoVentilationActuator::turnOn() {
+#ifndef UNIT_TEST
     if (!servo.attached()) {
         servo.attach(pin, 500, 2400);
     }
     servo.write(openAngle);
     delay(150);
+#endif
     active = true;
 }
 
-void VentilationActuator::turnOff() {
+void ServoVentilationActuator::turnOff() {
+#ifndef UNIT_TEST
     if (!servo.attached()) {
         servo.attach(pin, 500, 2400);
     }
     servo.write(closeAngle);
     delay(150);
+#endif
     active = false;
 }
 
-bool VentilationActuator::isOn() {
+bool ServoVentilationActuator::isOn() {
     return active;
 }
 
-const char* VentilationActuator::getStatusText() {
+const char* ServoVentilationActuator::getStatusText() {
     return active ? "OPEN" : "CLOSE";
-}
-
-void VentilationActuator::open() {
-    turnOn();
-}
-
-void VentilationActuator::close() {
-    turnOff();
 }

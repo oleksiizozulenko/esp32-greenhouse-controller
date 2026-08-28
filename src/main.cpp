@@ -4,6 +4,10 @@
 #include <esp_task_wdt.h>
 #include "rtos_tasks.h"
 
+#include "ServoVentilationActuator.h"
+#include "DotMatrix8x8IrrigationActuator.h"
+#include "YellowLedLightActuator.h"
+
 // Hardware Driver Instantiations
 DHT dht(PIN_DHT, DHT_TYPE);
 HumiditySensor humiditySensor(PIN_DHT, &dht);
@@ -11,9 +15,9 @@ SoilSensor soilSensor(PIN_SOIL_POT);
 TemperatureSensor temperatureSensor(PIN_TEMP, &dht);
 LightSensor lightSensor(PIN_LDR);
 
-VentilationActuator ventActuator(PIN_ACTUATOR_VENT);
-IrrigationActuator irrigActuator(PIN_ACTUATOR_IRRIG);
-LightActuator lightActuator(PIN_ACTUATOR_LIGHT);
+ServoVentilationActuator ventActuator(PIN_ACTUATOR_VENT);
+DotMatrix8x8IrrigationActuator irrigActuator(PIN_ACTUATOR_IRRIG);
+YellowLedLightActuator lightActuator(PIN_ACTUATOR_LIGHT);
 
 ButtonDriver btnMode(PIN_BTN_MODE, ButtonType::MODE);
 ButtonDriver btnIrrig(PIN_BTN_IRRIG, ButtonType::IRRIGATION);
