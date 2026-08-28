@@ -1,13 +1,14 @@
 #include "DisplayManager.h"
 
 DisplayManager::DisplayManager(int width, int height)
-    : display(width, height, &Wire, -1) {}
+    : display(width, height, &Wire, -1), isInitialized(false) {}
 
 DisplayManager::~DisplayManager() {}
 
 bool DisplayManager::init() {
     if (!display.begin(SSD1306_SWITCHCAPVCC, SCREEN_I2C_ADDR)) {
-        Serial.println("SSD1306 OLED allocation failed");
+        Serial.println("[DISPLAY] SSD1306 OLED not found or disconnected - Bypassing rendering.");
+        isInitialized = false;
         return false;
     }
     display.clearDisplay();
@@ -16,10 +17,13 @@ bool DisplayManager::init() {
     display.setCursor(0, 0);
     display.print("Greenhouse Init...");
     display.display();
+    isInitialized = true;
     return true;
 }
 
 void DisplayManager::render(const DisplayViewModel& model) {
+    if (!isInitialized) return;
+
     display.clearDisplay();
     display.setTextSize(1);
     display.setTextColor(WHITE);
