@@ -1,23 +1,40 @@
 #include "ButtonDriver.h"
 #include "config.h"
 
+#ifndef UNIT_TEST
+#include <freertos/FreeRTOS.h>
+#include <freertos/event_groups.h>
+#include "rom/ets_sys.h"
+extern EventGroupHandle_t systemEventGroup;
+#define EVENT_BIT_BUTTON_EVENT (1 << 1)
+#endif
+
 uint8_t ButtonDriver::nextId = 1;
 
 void IRAM_ATTR ButtonDriver::isrHandler(void* arg) {
     ButtonDriver* driver = static_cast<ButtonDriver*>(arg);
     if (driver != nullptr) {
-        if (digitalRead(driver->pin) == LOW) {
-            unsigned long now = millis();
-            if (now - driver->lastDebounceTime > driver->debounceDelay) {
-                driver->lastDebounceTime = now;
+        unsigned long now = millis();
+        if (now - driver->lastDebounceTime > driver->debounceDelay) {
+            driver->lastDebounceTime = now;
+
+#ifndef UNIT_TEST
+            ets_printf("[ISR HARDWARE] Interrupt triggered on GPIO %d (Button Type %d)!\n", driver->pin, (int)driver->type);
+#endif
+
+            if (driver->targetQueue != nullptr) {
+                ButtonEvent evt(driver->type, driver->id, now);
+                BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+                xQueueSendFromISR(driver->targetQueue, &evt, &xHigherPriorityTaskWoken);
                 
-                if (driver->targetQueue != nullptr) {
-                    ButtonEvent evt(driver->type, driver->id, now);
-                    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-                    xQueueSendFromISR(driver->targetQueue, &evt, &xHigherPriorityTaskWoken);
-                    if (xHigherPriorityTaskWoken == pdTRUE) {
-                        portYIELD_FROM_ISR();
-                    }
+#ifndef UNIT_TEST
+                if (systemEventGroup != NULL) {
+                    xEventGroupSetBitsFromISR(systemEventGroup, EVENT_BIT_BUTTON_EVENT, &xHigherPriorityTaskWoken);
+                }
+#endif
+
+                if (xHigherPriorityTaskWoken == pdTRUE) {
+                    portYIELD_FROM_ISR();
                 }
             }
         }
