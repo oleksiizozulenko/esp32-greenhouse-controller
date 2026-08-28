@@ -1,7 +1,10 @@
 #ifndef UNIT_TEST
 
 #include "rtos_tasks.h"
+#include "SystemAlertService.h"
 #include <esp_task_wdt.h>
+
+static SystemAlertService systemAlertService;
 
 // Inter-task Queues & Synchronization Handles Definitions
 QueueHandle_t buttonEventQueue = NULL;
@@ -101,6 +104,7 @@ void initRtosSynchronization() {
 }
 
 void startRtosTasks() {
+    systemAlertService.begin();
     xTaskCreatePinnedToCore(vTaskSensors, "TaskSensors", 4096, NULL, 2, &hTaskSensors, 1);
     xTaskCreatePinnedToCore(vTaskControl, "TaskControl", 3072, NULL, 3, &hTaskControl, 1);
     xTaskCreatePinnedToCore(vTaskDisplay, "TaskDisplay", 3072, NULL, 1, &hTaskDisplay, 0);
@@ -220,6 +224,7 @@ void vTaskControl(void* pvParameters) {
         }
 
         greenhouseController.update(isAutoMode, lastReadings, healthState);
+        systemAlertService.update(healthState);
         printTaskStackDiagnostics();
     }
 }

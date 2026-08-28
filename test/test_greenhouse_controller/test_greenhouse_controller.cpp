@@ -3,9 +3,11 @@
 #include "../MockActuator.h"
 #include "../MockSensor.h"
 #include "GreenhouseController.h"
+#include "SystemAlertService.h"
 #include "SensorsService.h"
 
 static GreenhouseController* automation;
+static SystemAlertService alertService;
 static MockActuator* ventActuator;
 static MockActuator* irrigActuator;
 static MockActuator* lightActuator;
@@ -16,8 +18,9 @@ static MockSensor* lightSensor;
 
 void setUp(void) {
     resetMockArduinoState();
+    alertService.begin();
 
-    automation = new GreenhouseController(4, PIN_LED_RED, PIN_LED_GREEN, PIN_BUZZER);
+    automation = new GreenhouseController(4);
 
     ventActuator = new MockActuator(PIN_ACTUATOR_VENT, ActuatorType::VENTILATION, "Ventilation");
     irrigActuator = new MockActuator(PIN_ACTUATOR_IRRIG, ActuatorType::IRRIGATION, "Irrigation");
@@ -405,7 +408,10 @@ void test_manual_mode_critical_temp_alert(void) {
     SensorDataMap readings(1);
     readings[0] = {tempSensor, tempSensor->read()};
 
-    automation->update(false, readings);
+    SafetyMonitorService monitor;
+    SystemHealthState healthState = monitor.evaluate(readings, false);
+    automation->update(false, readings, healthState);
+    alertService.update(healthState);
 
     TEST_ASSERT_EQUAL_UINT(1000, getMockBuzzerTone(PIN_BUZZER));
 }
@@ -415,7 +421,10 @@ void test_manual_mode_critical_soil_alert(void) {
     SensorDataMap readings(1);
     readings[0] = {soilSensor, soilSensor->read()};
 
-    automation->update(false, readings);
+    SafetyMonitorService monitor;
+    SystemHealthState healthState = monitor.evaluate(readings, false);
+    automation->update(false, readings, healthState);
+    alertService.update(healthState);
 
     TEST_ASSERT_EQUAL_UINT(1000, getMockBuzzerTone(PIN_BUZZER));
 }
@@ -474,7 +483,10 @@ void test_system_indicators_normal_operation(void) {
     readings[0] = {tempSensor, tempSensor->read()};
     readings[1] = {soilSensor, soilSensor->read()};
 
-    automation->update(true, readings);
+    SafetyMonitorService safetyMonitor;
+    SystemHealthState healthState = safetyMonitor.evaluate(readings, true);
+    automation->update(true, readings, healthState);
+    alertService.update(healthState);
 
     TEST_ASSERT_EQUAL_INT(LOW, getMockPinValue(PIN_LED_RED));
     TEST_ASSERT_EQUAL_INT(HIGH, getMockPinValue(PIN_LED_GREEN));
@@ -487,10 +499,13 @@ void test_system_indicators_sensor_error_led(void) {
     SensorDataMap readings(1);
     readings[0] = {tempSensor, tempSensor->read()};
 
-    automation->update(true, readings);
+    SafetyMonitorService safetyMonitor;
+    SystemHealthState healthState = safetyMonitor.evaluate(readings, true);
+    automation->update(true, readings, healthState);
+    alertService.update(healthState);
 
     TEST_ASSERT_EQUAL_INT(HIGH, getMockPinValue(PIN_LED_RED));
-    TEST_ASSERT_EQUAL_INT(LOW, getMockPinValue(PIN_LED_GREEN));
+    TEST_ASSERT_EQUAL_INT(HIGH, getMockPinValue(PIN_LED_GREEN)); // System power stays ON
 }
 
 void test_system_indicators_high_alert_buzzer_alarm(void) {
@@ -499,7 +514,10 @@ void test_system_indicators_high_alert_buzzer_alarm(void) {
     SensorDataMap readings(1);
     readings[0] = {tempSensor, tempSensor->read()};
 
-    automation->update(true, readings);
+    SafetyMonitorService safetyMonitor;
+    SystemHealthState healthState = safetyMonitor.evaluate(readings, true);
+    automation->update(true, readings, healthState);
+    alertService.update(healthState);
 
     TEST_ASSERT_EQUAL_UINT(1000, getMockBuzzerTone(PIN_BUZZER));
 }

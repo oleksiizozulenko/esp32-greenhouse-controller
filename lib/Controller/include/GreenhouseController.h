@@ -37,17 +37,10 @@ private:
     ActuatorTimer timers[MAX_ACTUATORS];
     size_t timerCount;
 
-    int redLedPin;
-    int greenLedPin;
-    int buzzerPin;
-
     static void vActuatorTimerCallback(TimerHandle_t xTimer);
 
 public:
-    GreenhouseController(size_t initialCapacity = 4,
-                         int redLed = PIN_LED_RED,
-                         int greenLed = PIN_LED_GREEN,
-                         int buzzer = PIN_BUZZER);
+    explicit GreenhouseController(size_t initialCapacity = 4);
     ~GreenhouseController();
 
     GreenhouseController(const GreenhouseController&) = delete;
@@ -68,7 +61,6 @@ public:
     uint32_t getActuatorTimeout(ActuatorType type) const;
 
     void begin();
-    void updateSystemIndicators(const SystemHealthState& healthState);
 
     void processAutomatic(const SensorDataMap& readings);
     void processManual(const SensorDataMap& readings, const SystemHealthState& healthState);
