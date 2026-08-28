@@ -37,21 +37,29 @@ void setup() {
 
   initRtosSynchronization();
 
-  sensorsService.addSensor(&humiditySensor);
-  sensorsService.addSensor(&soilSensor);
-  sensorsService.addSensor(&temperatureSensor);
-  sensorsService.addSensor(&lightSensor);
+  // ======================================================
+  // STEP 0: Minimal Baseline (All Hardware Disabled)
+  // Enable items one by one to verify each component.
+  // ======================================================
+
+  // --- 1. SENSORS (Currently Disabled for Bring-Up) ---
+  // sensorsService.addSensor(&humiditySensor);
+  // sensorsService.addSensor(&soilSensor);
+  // sensorsService.addSensor(&temperatureSensor);
+  // sensorsService.addSensor(&lightSensor);
   sensorsService.begin();
 
-  greenhouseController.addActuator(&ventActuator);
-  greenhouseController.addActuator(&irrigActuator);
-  greenhouseController.addActuator(&lightActuator);
+  // --- 2. ACTUATORS ---
+  // greenhouseController.addActuator(&ventActuator);
+  greenhouseController.addActuator(&irrigActuator); // STEP 1: Enable 8x8 Matrix Actuator (GPIO 33)
+  // greenhouseController.addActuator(&lightActuator);
   greenhouseController.begin();
 
-  btnMode.attachInterruptHandler(buttonEventQueue);
-  btnIrrig.attachInterruptHandler(buttonEventQueue);
-  btnVent.attachInterruptHandler(buttonEventQueue);
-  btnLight.attachInterruptHandler(buttonEventQueue);
+  // --- 3. BUTTONS ---
+  // btnMode.attachInterruptHandler(buttonEventQueue);
+  btnIrrig.attachInterruptHandler(buttonEventQueue); // STEP 1: Enable Irrigation Button (GPIO 14)
+  // btnVent.attachInterruptHandler(buttonEventQueue);
+  // btnLight.attachInterruptHandler(buttonEventQueue);
 
   displayManager.init();
 

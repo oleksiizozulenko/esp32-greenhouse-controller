@@ -124,16 +124,18 @@ void GreenhouseController::onButtonPressed(ButtonType button) {
     IActuator* act = getActuator(targetType);
     if (act != nullptr) {
         if (act->isOperating()) {
-            Serial.printf("[EVENT] Button %d pressed -> Turning OFF %s\n", (int)button, act->getName());
+            Serial.printf("[MANUAL EVENT] Button Pressed -> Stopping %s (Pin %d)\n", act->getName(), act->getPin());
             act->turnOff();
             stopTimerFor(targetType);
         } else {
-            Serial.printf("[EVENT] Button %d pressed -> Turning ON %s (With Safety Timer)\n", (int)button, act->getName());
-            act->turnOn();
-
             uint32_t timeoutMs = getActuatorTimeout(targetType);
+            Serial.printf("[MANUAL EVENT] Button Pressed -> Starting %s! (Pin %d - Safety Timer: %lu ms)\n",
+                          act->getName(), act->getPin(), (unsigned long)timeoutMs);
+            act->turnOn();
             startTimerFor(targetType, timeoutMs);
         }
+    } else {
+        Serial.printf("[MANUAL EVENT] Button Pressed -> WARNING: No Actuator registered for Target Type %d!\n", (int)targetType);
     }
 }
 
