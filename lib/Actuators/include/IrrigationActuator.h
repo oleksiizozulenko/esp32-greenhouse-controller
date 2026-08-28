@@ -33,7 +33,7 @@ private:
     bool active;
 
 public:
-    IrrigationActuator(int pin = PIN_LED_RING, int numPixels = NUM_PIXELS_RING);
+    IrrigationActuator(int pin , int numPixels = 0);
 
     void init() override;
     void turnOn() override;

@@ -21,9 +21,9 @@ inline SystemMode toggleSystemMode(SystemMode currentMode) {
 
 // Sensors
 #define PIN_DHT           19
-#define DHT_TYPE          DHT22
-#define PIN_TEMP          19
-#define PIN_LDR           35
+#define DHT_TYPE          DHT11
+#define PIN_TEMP          PIN_DHT
+#define PIN_LDR           35 // light sensor (LDR)
 #define PIN_SOIL_POT      34
 
 // Buttons
@@ -33,20 +33,25 @@ inline SystemMode toggleSystemMode(SystemMode currentMode) {
 #define PIN_BTN_LIGHT     26
 
 // Actuators & Indicators
-#define PIN_OLED_SDA        21
-#define PIN_OLED_SCL        22
+//#define PIN_OLED_SDA        21 // not in use, but defined for completeness
+//#define PIN_OLED_SCL        22 // not in use, but defined for completeness
+
+#define PIN_MATRIX_DISPLAY_1 33 // this is our irrigation display (8x8 dot matrix)
+
+#define PIN_LED_YELLOW      25  // actuator for light
+
 #define PIN_BUZZER          18
-#define PIN_LED_STRIP       17  // Light actuator (LED Strip)
-#define PIN_LED_RING        16  // Irrigation actuator (LED Ring)
+//#define PIN_LED_STRIP       17  //@deprecated Light actuator (LED Strip)
+//#define PIN_LED_RING        16  // @deprecated Irrigation actuator (LED Ring)
 #define PIN_LED_RED         4   // System error indicator LED
 #define PIN_LED_GREEN       15  // All systems normal indicator LED
-#define PIN_ACTUATOR_VENT   5   // Ventilation actuator (Servo)
+#define PIN_ACTUATOR_VENT   13   // Ventilation actuator (Servo)
 
-#define PIN_ACTUATOR_IRRIG  PIN_LED_RING
-#define PIN_ACTUATOR_LIGHT  PIN_LED_STRIP
+#define PIN_ACTUATOR_IRRIG  PIN_MATRIX_DISPLAY_1
+#define PIN_ACTUATOR_LIGHT  PIN_LED_YELLOW
 
-#define NUM_PIXELS_RING     16  // Number of NeoPixels on irrigation ring
-#define NUM_PIXELS_STRIP    20  // Number of NeoPixels on light strip
+#define NUM_PIXELS_RING     16  // @deprecated Number of NeoPixels on irrigation ring
+#define NUM_PIXELS_STRIP    20  // @deprecated Number of NeoPixels on light strip
 
 #define SERVO_OPEN_ANGLE    90  // Ventilation servo open angle
 #define SERVO_CLOSE_ANGLE   0   // Ventilation servo close angle
