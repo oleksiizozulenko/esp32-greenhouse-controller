@@ -11,9 +11,8 @@ void GreenhouseController::vActuatorTimerCallback(TimerHandle_t xTimer) {
     }
 }
 
-GreenhouseController::GreenhouseController(size_t initialCapacity, int redLed, int greenLed, int buzzer)
-    : actuators{}, actuatorCount(0), timers{}, timerCount(0),
-      redLedPin(redLed), greenLedPin(greenLed), buzzerPin(buzzer) {
+GreenhouseController::GreenhouseController(size_t initialCapacity)
+    : actuators{}, actuatorCount(0), timers{}, timerCount(0) {
     (void)initialCapacity;
     for (size_t i = 0; i < MAX_ACTUATORS; ++i) {
         actuators[i] = nullptr;
@@ -152,35 +151,10 @@ uint32_t GreenhouseController::getActuatorTimeout(ActuatorType type) const {
 }
 
 void GreenhouseController::begin() {
-    pinMode(redLedPin, OUTPUT);
-    pinMode(greenLedPin, OUTPUT);
-    pinMode(buzzerPin, OUTPUT);
-
-    digitalWrite(redLedPin, LOW);
-    digitalWrite(greenLedPin, HIGH); // Default normal operation
-    digitalWrite(buzzerPin, LOW);
-
     for (size_t i = 0; i < actuatorCount; ++i) {
         if (actuators[i] != nullptr) {
             actuators[i]->begin();
         }
-    }
-}
-
-void GreenhouseController::updateSystemIndicators(const SystemHealthState& healthState) {
-    if (healthState.hasHardwareError) {
-        digitalWrite(redLedPin, HIGH);  // LED_RED on (system error)
-        digitalWrite(greenLedPin, LOW); // LED_GREEN off
-    } else {
-        digitalWrite(redLedPin, LOW);   // LED_RED off
-        digitalWrite(greenLedPin, HIGH); // LED_GREEN on (all systems working)
-    }
-
-    if (healthState.requiresAlarm) {
-        tone(buzzerPin, 1000, 100); // 1kHz notification tone
-    } else {
-        noTone(buzzerPin);
-        digitalWrite(buzzerPin, LOW);
     }
 }
 
@@ -276,8 +250,6 @@ void GreenhouseController::update(bool isAutoMode, const SensorDataMap& readings
     } else {
         processManual(readings, healthState);
     }
-
-    updateSystemIndicators(healthState);
 }
 
 void GreenhouseController::update(bool isAutoMode, const SensorDataMap& readings) {
