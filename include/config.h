@@ -27,7 +27,7 @@ inline SystemMode toggleSystemMode(SystemMode currentMode) {
 #define PIN_SOIL_POT      34
 
 // Buttons
-#define PIN_BTN_MODE      12
+#define PIN_BTN_MODE      22
 #define PIN_BTN_IRRIG     14
 #define PIN_BTN_VENT      27
 #define PIN_BTN_LIGHT     26
