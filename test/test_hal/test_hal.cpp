@@ -23,7 +23,7 @@ void test_dht11_environment_sensor() {
 }
 
 void test_dot_matrix_irrigation_actuator() {
-    DotMatrix8x8IrrigationActuator dotMatrix(16, 17, 5);
+    DotMatrix8x8IrrigationActuator dotMatrix(16);
     dotMatrix.begin();
 
     TEST_ASSERT_FALSE(dotMatrix.isOn());

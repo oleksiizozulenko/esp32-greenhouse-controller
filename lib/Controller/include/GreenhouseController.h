@@ -7,7 +7,7 @@
 #include <freertos/timers.h>
 #endif
 #include "config.h"
-#include "Actuator.h"
+#include "IActuator.h"
 #include "ButtonDriver.h"
 #include "DisplayViewModel.h"
 #include "SensorsService.h"
@@ -31,7 +31,7 @@ public:
     };
 
 private:
-    Actuator* actuators[MAX_ACTUATORS];
+    IActuator* actuators[MAX_ACTUATORS];
     size_t actuatorCount;
 
     ActuatorTimer timers[MAX_ACTUATORS];
@@ -53,10 +53,11 @@ public:
     GreenhouseController(const GreenhouseController&) = delete;
     GreenhouseController& operator=(const GreenhouseController&) = delete;
 
-    bool addActuator(Actuator* actuator);
+    bool addActuator(IActuator* actuator);
     size_t getActuatorCount() const;
-    Actuator* getActuator(size_t index) const;
-    Actuator* getActuator(ActuatorType type) const;
+    IActuator* getActuator(size_t index) const;
+    IActuator* getActuator(ActuatorType type) const;
+
     ActuatorTimer* getActuatorTimer(ActuatorType type);
     const ActuatorTimer* getActuatorTimer(ActuatorType type) const;
 

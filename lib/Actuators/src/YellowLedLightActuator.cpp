@@ -3,22 +3,26 @@
 YellowLedLightActuator::YellowLedLightActuator(int gpioPin)
     : LightActuator(gpioPin, "Yellow LED Light"), state(false) {}
 
-void YellowLedLightActuator::init() {
+bool YellowLedLightActuator::begin() {
     pinMode(pin, OUTPUT);
     digitalWrite(pin, LOW);
     state = false;
+    return true;
 }
 
-void YellowLedLightActuator::turnOn() {
+bool YellowLedLightActuator::turnOn() {
     digitalWrite(pin, HIGH);
     state = true;
+    return true;
 }
 
-void YellowLedLightActuator::turnOff() {
+bool YellowLedLightActuator::turnOff() {
     digitalWrite(pin, LOW);
     state = false;
+    return true;
 }
 
-bool YellowLedLightActuator::isOn() {
+bool YellowLedLightActuator::isOn() const {
     return state;
 }
+

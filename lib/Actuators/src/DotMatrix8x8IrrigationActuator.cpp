@@ -3,25 +3,25 @@
 DotMatrix8x8IrrigationActuator::DotMatrix8x8IrrigationActuator(int gpioPin)
     : IrrigationActuator(gpioPin, "8x8 Matrix Irrigation"), activeState(false) {}
 
-
-void DotMatrix8x8IrrigationActuator::init() {
-    pinMode(dataPin, OUTPUT);
-
+bool DotMatrix8x8IrrigationActuator::begin() {
+    pinMode(pin, OUTPUT);
     turnOff();
+    return true;
 }
 
-void DotMatrix8x8IrrigationActuator::turnOn() {
+bool DotMatrix8x8IrrigationActuator::turnOn() {
     activeState = true;
-    digitalWrite(dataPin, HIGH);
-
+    digitalWrite(pin, HIGH);
+    return true;
 }
 
-void DotMatrix8x8IrrigationActuator::turnOff() {
+bool DotMatrix8x8IrrigationActuator::turnOff() {
     activeState = false;
-    digitalWrite(dataPin, LOW);
-
+    digitalWrite(pin, LOW);
+    return true;
 }
 
-bool DotMatrix8x8IrrigationActuator::isOn() {
+bool DotMatrix8x8IrrigationActuator::isOn() const {
     return activeState;
 }
+

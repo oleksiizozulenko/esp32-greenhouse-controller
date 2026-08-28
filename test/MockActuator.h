@@ -1,10 +1,13 @@
 #ifndef MOCK_ACTUATOR_H
 #define MOCK_ACTUATOR_H
 
-#include "Actuator.h"
+#include "IBinaryActuator.h"
 
-class MockActuator : public Actuator {
+class MockActuator : public IBinaryActuator {
 private:
+    int pin;
+    ActuatorType type;
+    const char* name;
     bool state;
     int turnOnCalls;
     int turnOffCalls;
@@ -12,28 +15,36 @@ private:
 
 public:
     MockActuator(int pin, const char* name)
-        : Actuator(pin, ActuatorType::UNKNOWN, name), state(false), turnOnCalls(0), turnOffCalls(0), initCalls(0) {}
+        : pin(pin), type(ActuatorType::UNKNOWN), name(name), state(false), turnOnCalls(0), turnOffCalls(0), initCalls(0) {}
 
     MockActuator(int pin, ActuatorType type, const char* name)
-        : Actuator(pin, type, name), state(false), turnOnCalls(0), turnOffCalls(0), initCalls(0) {}
+        : pin(pin), type(type), name(name), state(false), turnOnCalls(0), turnOffCalls(0), initCalls(0) {}
 
-    void init() override {
+    bool begin() override {
         initCalls++;
+        return true;
     }
 
-    void turnOn() override {
+    bool turnOn() override {
         state = true;
         turnOnCalls++;
+        return true;
     }
 
-    void turnOff() override {
+    bool turnOff() override {
         state = false;
         turnOffCalls++;
+        return true;
     }
 
-    bool isOn() override {
+    bool isOn() const override {
         return state;
     }
+
+    int getPin() const override { return pin; }
+    ActuatorType getType() const override { return type; }
+    const char* getName() const override { return name; }
+    const char* getStatusText() const override { return state ? "ON" : "OFF"; }
 
     void setState(bool s) { state = s; }
     int getTurnOnCalls() const { return turnOnCalls; }
@@ -47,3 +58,4 @@ public:
 };
 
 #endif // MOCK_ACTUATOR_H
+

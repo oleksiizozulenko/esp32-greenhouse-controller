@@ -1,9 +1,9 @@
 #include "ServoVentilationActuator.h"
 
 ServoVentilationActuator::ServoVentilationActuator(int gpioPin, int openAngle, int closeAngle)
-    : VentilationActuator(gpioPin, "Servo Ventilation"), active(false), openAngle(openAngle), closeAngle(closeAngle) {}
+    : VentilationActuator(gpioPin, "Servo Ventilation"), active(false), openAngle(openAngle), closeAngle(closeAngle), currentAngle(closeAngle) {}
 
-void ServoVentilationActuator::init() {
+bool ServoVentilationActuator::begin() {
 #ifndef UNIT_TEST
     ESP32PWM::allocateTimer(0);
     ESP32PWM::allocateTimer(1);
@@ -15,9 +15,11 @@ void ServoVentilationActuator::init() {
     servo.write(closeAngle);
 #endif
     active = false;
+    currentAngle = closeAngle;
+    return true;
 }
 
-void ServoVentilationActuator::turnOn() {
+bool ServoVentilationActuator::turnOn() {
 #ifndef UNIT_TEST
     if (!servo.attached()) {
         servo.attach(pin, 500, 2400);
@@ -26,9 +28,11 @@ void ServoVentilationActuator::turnOn() {
     delay(150);
 #endif
     active = true;
+    currentAngle = openAngle;
+    return true;
 }
 
-void ServoVentilationActuator::turnOff() {
+bool ServoVentilationActuator::turnOff() {
 #ifndef UNIT_TEST
     if (!servo.attached()) {
         servo.attach(pin, 500, 2400);
@@ -37,12 +41,44 @@ void ServoVentilationActuator::turnOff() {
     delay(150);
 #endif
     active = false;
+    currentAngle = closeAngle;
+    return true;
 }
 
-bool ServoVentilationActuator::isOn() {
+bool ServoVentilationActuator::isOperating() const {
     return active;
 }
 
-const char* ServoVentilationActuator::getStatusText() {
+bool ServoVentilationActuator::setAngleDegrees(float angle) {
+    int target = static_cast<int>(angle);
+#ifndef UNIT_TEST
+    if (!servo.attached()) {
+        servo.attach(pin, 500, 2400);
+    }
+    servo.write(target);
+    delay(150);
+#endif
+    currentAngle = target;
+    active = (currentAngle != closeAngle);
+    return true;
+}
+
+bool ServoVentilationActuator::setPositionPercent(float percent0to100) {
+    if (percent0to100 < 0.0f) percent0to100 = 0.0f;
+    if (percent0to100 > 100.0f) percent0to100 = 100.0f;
+    float targetAngle = closeAngle + (percent0to100 / 100.0f) * (openAngle - closeAngle);
+    return setAngleDegrees(targetAngle);
+}
+
+float ServoVentilationActuator::getPositionPercent() const {
+    if (openAngle == closeAngle) return 0.0f;
+    float pct = (static_cast<float>(currentAngle - closeAngle) / static_cast<float>(openAngle - closeAngle)) * 100.0f;
+    if (pct < 0.0f) return 0.0f;
+    if (pct > 100.0f) return 100.0f;
+    return pct;
+}
+
+const char* ServoVentilationActuator::getStatusText() const {
     return active ? "OPEN" : "CLOSE";
 }
+

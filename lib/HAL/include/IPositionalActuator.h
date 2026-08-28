@@ -3,7 +3,7 @@
 
 #include "IActuator.h"
 
-class IPositionalActuator : public IActuator {
+class IPositionalActuator : virtual public IActuator {
 public:
     virtual ~IPositionalActuator() = default;
     virtual bool setAngleDegrees(float angle) = 0;
@@ -12,3 +12,4 @@ public:
 };
 
 #endif // HAL_IPOSITIONAL_ACTUATOR_H
+

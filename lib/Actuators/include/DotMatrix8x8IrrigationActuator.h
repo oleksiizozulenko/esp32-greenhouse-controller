@@ -6,19 +6,17 @@
 
 class DotMatrix8x8IrrigationActuator : public IrrigationActuator {
 private:
-    int dataPin;
     bool activeState;
 
 public:
     explicit DotMatrix8x8IrrigationActuator(int gpioPin);
     ~DotMatrix8x8IrrigationActuator() override = default;
 
-    void init() override;
-    bool begin() { init(); return true; }
-    void turnOn() override;
-    void turnOff() override;
-    bool isOn() override;
-    bool isOperating() const { return activeState; }
+    bool begin() override;
+    bool turnOn() override;
+    bool turnOff() override;
+    bool isOn() const override;
 };
 
 #endif // DOT_MATRIX_8X8_IRRIGATION_ACTUATOR_H
+
