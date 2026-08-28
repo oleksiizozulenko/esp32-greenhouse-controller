@@ -6,21 +6,19 @@ uint8_t ButtonDriver::nextId = 1;
 void IRAM_ATTR ButtonDriver::isrHandler(void* arg) {
     ButtonDriver* driver = static_cast<ButtonDriver*>(arg);
     if (driver != nullptr) {
-        unsigned long now = millis();
-        if (now - driver->lastDebounceTime > driver->debounceDelay) {
-            driver->lastDebounceTime = now;
-            
-            if (driver->targetQueue != nullptr) {
-                ButtonEvent evt(driver->type, driver->id, now);
-                BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-                xQueueSendFromISR(driver->targetQueue, &evt, &xHigherPriorityTaskWoken);
-                if (xHigherPriorityTaskWoken == pdTRUE) {
-                    portYIELD_FROM_ISR();
+        if (digitalRead(driver->pin) == LOW) {
+            unsigned long now = millis();
+            if (now - driver->lastDebounceTime > driver->debounceDelay) {
+                driver->lastDebounceTime = now;
+                
+                if (driver->targetQueue != nullptr) {
+                    ButtonEvent evt(driver->type, driver->id, now);
+                    BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+                    xQueueSendFromISR(driver->targetQueue, &evt, &xHigherPriorityTaskWoken);
+                    if (xHigherPriorityTaskWoken == pdTRUE) {
+                        portYIELD_FROM_ISR();
+                    }
                 }
-            }
-
-            if (driver->listener != nullptr) {
-                driver->listener->onButtonPressed(driver->type);
             }
         }
     }
