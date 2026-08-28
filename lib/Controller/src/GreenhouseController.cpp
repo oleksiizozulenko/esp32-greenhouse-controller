@@ -3,8 +3,8 @@
 void GreenhouseController::vActuatorTimerCallback(TimerHandle_t xTimer) {
     TimerContext* ctx = (TimerContext*)pvTimerGetTimerID(xTimer);
     if (ctx != nullptr && ctx->controller != nullptr) {
-        Actuator* act = ctx->controller->getActuator(ctx->actuatorType);
-        if (act != nullptr && act->isOn()) {
+        IActuator* act = ctx->controller->getActuator(ctx->actuatorType);
+        if (act != nullptr && act->isOperating()) {
             Serial.printf("[SAFETY TIMER] %s Timer Expired -> Auto Turning OFF\n", act->getName());
             act->turnOff();
         }
@@ -33,7 +33,7 @@ GreenhouseController::~GreenhouseController() {
     }
 }
 
-bool GreenhouseController::addActuator(Actuator* actuator) {
+bool GreenhouseController::addActuator(IActuator* actuator) {
     if (actuator == nullptr || actuatorCount >= MAX_ACTUATORS) return false;
     actuators[actuatorCount++] = actuator;
     return true;
@@ -43,14 +43,14 @@ size_t GreenhouseController::getActuatorCount() const {
     return actuatorCount;
 }
 
-Actuator* GreenhouseController::getActuator(size_t index) const {
+IActuator* GreenhouseController::getActuator(size_t index) const {
     if (index < actuatorCount) {
         return actuators[index];
     }
     return nullptr;
 }
 
-Actuator* GreenhouseController::getActuator(ActuatorType type) const {
+IActuator* GreenhouseController::getActuator(ActuatorType type) const {
     for (size_t i = 0; i < actuatorCount; ++i) {
         if (actuators[i] != nullptr && actuators[i]->getType() == type) {
             return actuators[i];
@@ -58,6 +58,7 @@ Actuator* GreenhouseController::getActuator(ActuatorType type) const {
     }
     return nullptr;
 }
+
 
 GreenhouseController::ActuatorTimer* GreenhouseController::getActuatorTimer(ActuatorType type) {
     for (size_t i = 0; i < timerCount; ++i) {
@@ -80,7 +81,7 @@ const GreenhouseController::ActuatorTimer* GreenhouseController::getActuatorTime
 void GreenhouseController::startTimerFor(ActuatorType type, uint32_t timeoutMs) {
     ActuatorTimer* timerObj = getActuatorTimer(type);
     if (timerObj == nullptr) {
-        Actuator* act = getActuator(type);
+        IActuator* act = getActuator(type);
         if (act == nullptr || timerCount >= MAX_ACTUATORS) return;
 
         timerObj = &timers[timerCount++];
@@ -121,9 +122,9 @@ void GreenhouseController::onButtonPressed(ButtonType button) {
         targetType = ActuatorType::LIGHT;
     }
 
-    Actuator* act = getActuator(targetType);
+    IActuator* act = getActuator(targetType);
     if (act != nullptr) {
-        if (act->isOn()) {
+        if (act->isOperating()) {
             Serial.printf("[EVENT] Button %d pressed -> Turning OFF %s\n", (int)button, act->getName());
             act->turnOff();
             stopTimerFor(targetType);
@@ -161,7 +162,7 @@ void GreenhouseController::begin() {
 
     for (size_t i = 0; i < actuatorCount; ++i) {
         if (actuators[i] != nullptr) {
-            actuators[i]->init();
+            actuators[i]->begin();
         }
     }
 }
@@ -186,7 +187,7 @@ void GreenhouseController::updateSystemIndicators(const SystemHealthState& healt
 void GreenhouseController::processAutomatic(const SensorDataMap& readings) {
     SensorData tempData = readings.get(SensorType::TEMPERATURE);
     SensorData humData = readings.get(SensorType::HUMIDITY);
-    Actuator* vent = getActuator(ActuatorType::VENTILATION);
+    IActuator* vent = getActuator(ActuatorType::VENTILATION);
     if (vent != nullptr) {
         bool tempError = tempData.isError;
         bool humError = humData.isError;
@@ -198,18 +199,18 @@ void GreenhouseController::processAutomatic(const SensorDataMap& readings) {
         bool normalHum = humError || (humData.value < (HUMIDITY_THRESHOLD_HIGH - HUMIDITY_HYSTERESIS));
 
         if (tempError && humError) {
-            if (vent->isOn()) {
+            if (vent->isOperating()) {
                 Serial.printf("[AUTO] Temp & Humidity Sensor Error -> Turning OFF Ventilation (%s)\n", vent->getName());
                 vent->turnOff();
                 stopTimerFor(ActuatorType::VENTILATION);
             }
         } else if (highTemp || highHum) {
-            if (!vent->isOn()) {
+            if (!vent->isOperating()) {
                 Serial.printf("[AUTO] High %s -> Opening Ventilation (%s)\n",
                               highTemp ? "Temp" : "Air Humidity", vent->getName());
                 vent->turnOn();
             }
-        } else if (normalTemp && normalHum && vent->isOn()) {
+        } else if (normalTemp && normalHum && vent->isOperating()) {
             Serial.printf("[AUTO] Normal Temp & Humidity -> Closing Ventilation (%s)\n", vent->getName());
             vent->turnOff();
             stopTimerFor(ActuatorType::VENTILATION);
@@ -217,21 +218,21 @@ void GreenhouseController::processAutomatic(const SensorDataMap& readings) {
     }
 
     SensorData soilData = readings.get(SensorType::SOIL);
-    Actuator* irrig = getActuator(ActuatorType::IRRIGATION);
+    IActuator* irrig = getActuator(ActuatorType::IRRIGATION);
     if (irrig != nullptr) {
         if (soilData.isError) {
-            if (irrig->isOn()) {
+            if (irrig->isOperating()) {
                 Serial.printf("[AUTO] Soil Sensor Error -> Turning OFF Irrigation (%s)\n", irrig->getName());
                 irrig->turnOff();
                 stopTimerFor(ActuatorType::IRRIGATION);
             }
         } else if (soilData.value < SOIL_DRY_THRESHOLD) {
-            if (!irrig->isOn()) {
+            if (!irrig->isOperating()) {
                 Serial.printf("[AUTO] Low Soil Moisture (%.2f%% < %d%%) -> Turning ON Irrigation (%s)\n",
                               soilData.value, SOIL_DRY_THRESHOLD, irrig->getName());
                 irrig->turnOn();
             }
-        } else if (soilData.value > (SOIL_DRY_THRESHOLD + SOIL_HYSTERESIS) && irrig->isOn()) {
+        } else if (soilData.value > (SOIL_DRY_THRESHOLD + SOIL_HYSTERESIS) && irrig->isOperating()) {
             Serial.printf("[AUTO] Normal Soil Moisture (%.2f%% > %d%%) -> Turning OFF Irrigation (%s)\n",
                           soilData.value, SOIL_DRY_THRESHOLD + SOIL_HYSTERESIS, irrig->getName());
             irrig->turnOff();
@@ -240,19 +241,19 @@ void GreenhouseController::processAutomatic(const SensorDataMap& readings) {
     }
 
     SensorData lightData = readings.get(SensorType::LIGHT);
-    Actuator* light = getActuator(ActuatorType::LIGHT);
+    IActuator* light = getActuator(ActuatorType::LIGHT);
     if (light != nullptr) {
         if (lightData.isError) {
-            if (light->isOn()) {
+            if (light->isOperating()) {
                 Serial.printf("[AUTO] Light Sensor Error -> Turning OFF Light (%s)\n", light->getName());
                 light->turnOff();
                 stopTimerFor(ActuatorType::LIGHT);
             }
-        } else if (lightData.value < LIGHT_DARK_THRESHOLD && !light->isOn()) {
+        } else if (lightData.value < LIGHT_DARK_THRESHOLD && !light->isOperating()) {
             Serial.printf("[AUTO] Low Light (%.2f < %.2f) -> Turning ON Light (%s)\n",
                           lightData.value, LIGHT_DARK_THRESHOLD, light->getName());
             light->turnOn();
-        } else if (lightData.value > (LIGHT_DARK_THRESHOLD + LIGHT_HYSTERESIS) && light->isOn()) {
+        } else if (lightData.value > (LIGHT_DARK_THRESHOLD + LIGHT_HYSTERESIS) && light->isOperating()) {
             Serial.printf("[AUTO] Normal Light (%.2f > %.2f) -> Turning OFF Light (%s)\n",
                           lightData.value, LIGHT_DARK_THRESHOLD + LIGHT_HYSTERESIS, light->getName());
             light->turnOff();
@@ -260,6 +261,7 @@ void GreenhouseController::processAutomatic(const SensorDataMap& readings) {
         }
     }
 }
+
 
 void GreenhouseController::processManual(const SensorDataMap& readings, const SystemHealthState& healthState) {
     (void)readings;

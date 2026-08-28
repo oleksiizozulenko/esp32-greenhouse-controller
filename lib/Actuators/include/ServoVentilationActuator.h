@@ -18,7 +18,6 @@ namespace ESP32PWM {
 #endif
 
 #include "VentilationActuator.h"
-#include "IPositionalActuator.h"
 
 class ServoVentilationActuator : public VentilationActuator {
 private:
@@ -28,16 +27,23 @@ private:
     bool active;
     int openAngle;
     int closeAngle;
+    int currentAngle;
 
 public:
     explicit ServoVentilationActuator(int gpioPin, int openAngle = 90, int closeAngle = 0);
     ~ServoVentilationActuator() override = default;
 
-    void init() override;
-    void turnOn() override;
-    void turnOff() override;
-    bool isOn() override;
-    const char* getStatusText() override;
+    bool begin() override;
+    bool turnOn() override;
+    bool turnOff() override;
+    bool isOperating() const override;
+
+    bool setAngleDegrees(float angle) override;
+    bool setPositionPercent(float percent0to100) override;
+    float getPositionPercent() const override;
+
+    const char* getStatusText() const override;
 };
 
 #endif // SERVO_VENTILATION_ACTUATOR_H
+

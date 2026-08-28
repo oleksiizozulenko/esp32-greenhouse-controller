@@ -12,10 +12,11 @@ public:
     explicit YellowLedLightActuator(int gpioPin);
     ~YellowLedLightActuator() override = default;
 
-    void init() override;
-    void turnOn() override;
-    void turnOff() override;
-    bool isOn() override;
+    bool begin() override;
+    bool turnOn() override;
+    bool turnOff() override;
+    bool isOn() const override;
 };
 
 #endif // YELLOW_LED_LIGHT_ACTUATOR_H
+

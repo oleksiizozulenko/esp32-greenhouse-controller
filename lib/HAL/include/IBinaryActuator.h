@@ -3,11 +3,12 @@
 
 #include "IActuator.h"
 
-class IBinaryActuator : public IActuator {
+class IBinaryActuator : virtual public IActuator {
 public:
     virtual ~IBinaryActuator() = default;
-    virtual bool turnOn() = 0;
     virtual bool isOn() const = 0;
+    bool isOperating() const override { return isOn(); }
 };
 
 #endif // HAL_IBINARY_ACTUATOR_H
+
