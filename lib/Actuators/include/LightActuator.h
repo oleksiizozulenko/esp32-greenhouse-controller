@@ -33,7 +33,7 @@ private:
     bool active;
 
 public:
-    LightActuator(int pin = PIN_LED_STRIP, int numPixels = NUM_PIXELS_STRIP);
+    LightActuator(int pin, int numPixels = 0);
 
     void init() override;
     void turnOn() override;
