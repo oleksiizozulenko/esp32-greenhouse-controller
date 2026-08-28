@@ -39,6 +39,7 @@ public:
 class DisplayManager {
 private:
     Adafruit_SSD1306 display;
+    bool isInitialized;
 
 public:
     DisplayManager(int width = 128, int height = 64);
@@ -46,6 +47,7 @@ public:
 
     bool init();
     void render(const DisplayViewModel& model);
+    bool isConnected() const { return isInitialized; }
 };
 
 #endif // DISPLAY_MANAGER_H
