@@ -101,7 +101,7 @@ void initRtosSynchronization() {
 }
 
 void startRtosTasks() {
-    xTaskCreatePinnedToCore(vTaskSensors, "TaskSensors", 2048, NULL, 2, &hTaskSensors, 1);
+    xTaskCreatePinnedToCore(vTaskSensors, "TaskSensors", 4096, NULL, 2, &hTaskSensors, 1);
     xTaskCreatePinnedToCore(vTaskControl, "TaskControl", 3072, NULL, 3, &hTaskControl, 1);
     xTaskCreatePinnedToCore(vTaskDisplay, "TaskDisplay", 3072, NULL, 1, &hTaskDisplay, 0);
 }
@@ -117,6 +117,20 @@ void vTaskSensors(void* pvParameters) {
         esp_task_wdt_reset();
 
         SensorDataMap readings = sensorsService.read();
+
+        // Diagnostic Printout for Hardware Debugging
+        Serial.println("\n[SENSORS DIAGNOSTIC READOUT]");
+        for (size_t i = 0; i < readings.size(); ++i) {
+            Sensor* s = readings[i].sensor;
+            SensorData d = readings[i].data;
+            if (s != nullptr) {
+                if (d.isError) {
+                    Serial.printf("  -> %s (Pin %d): [ERROR / NAN]\n", s->getName(), s->getPin());
+                } else {
+                    Serial.printf("  -> %s (Pin %d): %.2f %s [OK]\n", s->getName(), s->getPin(), d.value, s->getUnit());
+                }
+            }
+        }
 
         if (controlSensorQueue != NULL) {
             xQueueSend(controlSensorQueue, &readings, 0);
