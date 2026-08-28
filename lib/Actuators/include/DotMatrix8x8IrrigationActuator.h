@@ -2,24 +2,23 @@
 #define DOT_MATRIX_8X8_IRRIGATION_ACTUATOR_H
 
 #include <Arduino.h>
-#include "IBinaryActuator.h"
+#include "IrrigationActuator.h"
 
-class DotMatrix8x8IrrigationActuator : public IBinaryActuator {
+class DotMatrix8x8IrrigationActuator : public IrrigationActuator {
 private:
     int dataPin;
-    int clockPin;
-    int csPin;
     bool activeState;
 
 public:
-    DotMatrix8x8IrrigationActuator(int dinPin, int clkPin, int csPin);
+    explicit DotMatrix8x8IrrigationActuator(int gpioPin);
     ~DotMatrix8x8IrrigationActuator() override = default;
 
-    bool begin() override;
-    bool turnOn() override;
-    bool turnOff() override;
-    bool isOn() const override;
-    bool isOperating() const override;
+    void init() override;
+    bool begin() { init(); return true; }
+    void turnOn() override;
+    void turnOff() override;
+    bool isOn() override;
+    bool isOperating() const { return activeState; }
 };
 
 #endif // DOT_MATRIX_8X8_IRRIGATION_ACTUATOR_H
