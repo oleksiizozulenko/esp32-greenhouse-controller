@@ -3,6 +3,9 @@
 #include "../MockActuator.h"
 #include "../MockSensor.h"
 #include "GreenhouseController.h"
+#include "VentilationSubsystem.h"
+#include "LightingSubsystem.h"
+#include "IrrigationSubsystem.h"
 #include "SystemAlertService.h"
 #include "SensorsService.h"
 
@@ -726,6 +729,52 @@ void test_system_under_high_load_stress(void) {
     TEST_ASSERT_NOT_NULL(automation);
 }
 
+void test_subsystem_independent_modes(void) {
+    automation->getVentilationSubsystem().setMode(ControlMode::MANUAL);
+    automation->getVentilationSubsystem().setManualState(ManualState::ON);
+
+    TEST_ASSERT_EQUAL(ControlMode::MANUAL, automation->getVentilationSubsystem().getMode());
+    TEST_ASSERT_EQUAL(ControlMode::AUTO, automation->getLightingSubsystem().getMode());
+    TEST_ASSERT_EQUAL(ControlMode::AUTO, automation->getIrrigationSubsystem().getMode());
+}
+
+void test_manual_mode_critical_temp_triggers_alarm_without_overriding_manual_off(void) {
+    automation->getVentilationSubsystem().setMode(ControlMode::MANUAL);
+    automation->getVentilationSubsystem().setManualState(ManualState::OFF);
+
+    tempSensor->setData(46.0f, false); // Critical Overheat (> 45°C)
+    SensorDataMap readings(1);
+    readings[0] = {tempSensor, tempSensor->read()};
+
+    SystemHealthState healthState;
+    automation->update(true, readings, healthState);
+
+    // Alarm triggered!
+    TEST_ASSERT_TRUE(healthState.hasCriticalHazard);
+    TEST_ASSERT_TRUE(automation->getVentilationSubsystem().getStatus().hasActiveAlarm);
+
+    // Actuator remains OFF because mode is MANUAL and manual state is OFF
+    TEST_ASSERT_FALSE(ventActuator->isOn());
+}
+
+void test_auto_mode_critical_temp_triggers_alarm_and_forces_actuator_on(void) {
+    automation->getVentilationSubsystem().setMode(ControlMode::AUTO);
+
+    tempSensor->setData(46.0f, false); // Critical Overheat (> 45°C)
+    SensorDataMap readings(1);
+    readings[0] = {tempSensor, tempSensor->read()};
+
+    SystemHealthState healthState;
+    automation->update(true, readings, healthState);
+
+    // Alarm triggered!
+    TEST_ASSERT_TRUE(healthState.hasCriticalHazard);
+    TEST_ASSERT_TRUE(automation->getVentilationSubsystem().getStatus().hasActiveAlarm);
+
+    // Actuator forced ON in AUTO mode
+    TEST_ASSERT_TRUE(ventActuator->isOn());
+}
+
 int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
@@ -779,6 +828,10 @@ int main(int argc, char **argv) {
     RUN_TEST(test_manual_button_turn_off_stops_safety_timer);
     RUN_TEST(test_timer_reuse_on_multiple_manual_presses);
     RUN_TEST(test_system_under_high_load_stress);
+
+    RUN_TEST(test_subsystem_independent_modes);
+    RUN_TEST(test_manual_mode_critical_temp_triggers_alarm_without_overriding_manual_off);
+    RUN_TEST(test_auto_mode_critical_temp_triggers_alarm_and_forces_actuator_on);
 
     return UNITY_END();
 }

@@ -12,6 +12,9 @@
 #include "DisplayViewModel.h"
 #include "SensorsService.h"
 #include "SafetyMonitorService.h"
+#include "VentilationSubsystem.h"
+#include "LightingSubsystem.h"
+#include "IrrigationSubsystem.h"
 
 class GreenhouseController : public IButtonListener {
 public:
@@ -34,6 +37,12 @@ private:
     IActuator* actuators[MAX_ACTUATORS];
     size_t actuatorCount;
 
+    VentilationSubsystem ventilationSubsystem;
+    LightingSubsystem lightingSubsystem;
+    IrrigationSubsystem irrigationSubsystem;
+
+    SystemMode globalSystemMode;
+
     ActuatorTimer timers[MAX_ACTUATORS];
     size_t timerCount;
 
@@ -51,6 +60,17 @@ public:
     IActuator* getActuator(size_t index) const;
     IActuator* getActuator(ActuatorType type) const;
 
+    VentilationSubsystem& getVentilationSubsystem() { return ventilationSubsystem; }
+    LightingSubsystem& getLightingSubsystem() { return lightingSubsystem; }
+    IrrigationSubsystem& getIrrigationSubsystem() { return irrigationSubsystem; }
+
+    IControlSubsystem* getSubsystem(SubsystemType type);
+    const IControlSubsystem* getSubsystem(SubsystemType type) const;
+    IControlSubsystem* getSubsystemForButton(ButtonType button);
+
+    SystemMode getSystemMode() const { return globalSystemMode; }
+    void setSystemMode(SystemMode mode);
+
     ActuatorTimer* getActuatorTimer(ActuatorType type);
     const ActuatorTimer* getActuatorTimer(ActuatorType type) const;
 
@@ -62,10 +82,7 @@ public:
 
     void begin();
 
-    void processAutomatic(const SensorDataMap& readings);
-    void processManual(const SensorDataMap& readings, const SystemHealthState& healthState);
-
-    void update(bool isAutoMode, const SensorDataMap& readings, const SystemHealthState& healthState);
+    void update(bool isAutoMode, const SensorDataMap& readings, SystemHealthState& healthState);
     void update(bool isAutoMode, const SensorDataMap& readings);
 
     DisplayViewModel buildDisplayViewModel(bool isAutoMode, const SensorDataMap& readings, const SystemHealthState& healthState) const;
