@@ -71,6 +71,55 @@ void test_button_driver_attach_interrupt(void) {
     TEST_ASSERT_EQUAL_INT((int)ButtonType::VENTILATION, (int)btn.getType());
 }
 
+void test_button_driver_isr_debouncing(void) {
+    QueueHandle_t mockQueue = (QueueHandle_t)0x5555;
+    ButtonDriver btn(14, ButtonType::VENTILATION, 50);
+    btn.attachInterruptHandler(mockQueue);
+
+    getMockArduinoState().isrQueueSendCount = 0;
+    setMockPinValue(14, HIGH);
+
+    // 1. Initial Press (Falling edge to LOW) at t = 100ms
+    setSimulatedMillis(100);
+    setMockPinValue(14, LOW);
+    ButtonDriver::isrHandler(&btn);
+    TEST_ASSERT_EQUAL_INT(1, getMockArduinoState().isrQueueSendCount);
+
+    // 2. Press contact bounce (Rising and Falling edges within 50ms window)
+    setSimulatedMillis(102);
+    setMockPinValue(14, HIGH);
+    ButtonDriver::isrHandler(&btn);
+
+    setSimulatedMillis(105);
+    setMockPinValue(14, LOW);
+    ButtonDriver::isrHandler(&btn);
+
+    TEST_ASSERT_EQUAL_INT(1, getMockArduinoState().isrQueueSendCount);
+
+    // 3. Release button at t = 500ms (Pin rises to HIGH)
+    setSimulatedMillis(500);
+    setMockPinValue(14, HIGH);
+    ButtonDriver::isrHandler(&btn);
+    TEST_ASSERT_EQUAL_INT(1, getMockArduinoState().isrQueueSendCount);
+
+    // 4. Release contact bounce at t = 505ms (Pin drops LOW briefly)
+    setSimulatedMillis(505);
+    setMockPinValue(14, LOW);
+    ButtonDriver::isrHandler(&btn);
+
+    setSimulatedMillis(508);
+    setMockPinValue(14, HIGH);
+    ButtonDriver::isrHandler(&btn);
+
+    TEST_ASSERT_EQUAL_INT(1, getMockArduinoState().isrQueueSendCount);
+
+    // 5. Subsequent Press at t = 1000ms (Pin goes LOW >50ms after release)
+    setSimulatedMillis(1000);
+    setMockPinValue(14, LOW);
+    ButtonDriver::isrHandler(&btn);
+    TEST_ASSERT_EQUAL_INT(2, getMockArduinoState().isrQueueSendCount);
+}
+
 int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
@@ -81,6 +130,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_button_driver_getters);
     RUN_TEST(test_button_driver_debouncing);
     RUN_TEST(test_button_driver_attach_interrupt);
+    RUN_TEST(test_button_driver_isr_debouncing);
 
     return UNITY_END();
 }

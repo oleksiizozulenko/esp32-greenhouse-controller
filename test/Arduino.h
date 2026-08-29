@@ -55,8 +55,14 @@ typedef uint32_t BaseType_t;
 #ifndef IRAM_ATTR
 #define IRAM_ATTR
 #endif
+#ifndef CHANGE
+#define CHANGE 0x1
+#endif
 #ifndef FALLING
 #define FALLING 0x2
+#endif
+#ifndef RISING
+#define RISING 0x3
 #endif
 
 struct MockFreeRTOSTimer {
@@ -121,9 +127,6 @@ inline void triggerMockTimerCallback(TimerHandle_t xTimer) {
 
 inline int digitalPinToInterrupt(int pin) { return pin; }
 inline void attachInterruptArg(int pin, void (*isr)(void*), void* arg, int mode) { (void)pin; (void)isr; (void)arg; (void)mode; }
-inline BaseType_t xQueueSendFromISR(QueueHandle_t q, const void* item, BaseType_t* pxHigherPriorityTaskWoken) {
-    (void)q; (void)item; if (pxHigherPriorityTaskWoken) *pxHigherPriorityTaskWoken = pdFALSE; return pdTRUE;
-}
 inline void portYIELD_FROM_ISR() {}
 
 struct MockArduinoState {
@@ -131,6 +134,7 @@ struct MockArduinoState {
     std::map<int, int> pinValues;
     std::map<int, unsigned int> buzzerTones;
     unsigned long simulatedMillis = 0;
+    int isrQueueSendCount = 0;
 };
 
 inline MockArduinoState& getMockArduinoState() {
@@ -138,11 +142,19 @@ inline MockArduinoState& getMockArduinoState() {
     return state;
 }
 
+inline BaseType_t xQueueSendFromISR(QueueHandle_t q, const void* item, BaseType_t* pxHigherPriorityTaskWoken) {
+    (void)q; (void)item;
+    getMockArduinoState().isrQueueSendCount++;
+    if (pxHigherPriorityTaskWoken) *pxHigherPriorityTaskWoken = pdFALSE;
+    return pdTRUE;
+}
+
 inline void resetMockArduinoState() {
     getMockArduinoState().pinModes.clear();
     getMockArduinoState().pinValues.clear();
     getMockArduinoState().buzzerTones.clear();
     getMockArduinoState().simulatedMillis = 0;
+    getMockArduinoState().isrQueueSendCount = 0;
 }
 
 inline void setMockPinValue(int pin, int value) {
