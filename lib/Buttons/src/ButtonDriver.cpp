@@ -15,27 +15,37 @@ void IRAM_ATTR ButtonDriver::isrHandler(void* arg) {
     ButtonDriver* driver = static_cast<ButtonDriver*>(arg);
     if (driver != nullptr) {
         unsigned long now = millis();
-        if (now - driver->lastDebounceTime > driver->debounceDelay) {
-            driver->lastDebounceTime = now;
+        unsigned long elapsed = now - driver->lastDebounceTime;
+        driver->lastDebounceTime = now;
+
+        if (elapsed > driver->debounceDelay) {
+            int currentState = digitalRead(driver->pin);
+            if (currentState == LOW) {
+                if (driver->lastState == HIGH) {
+                    driver->lastState = LOW;
 
 #ifndef UNIT_TEST
-            ets_printf("[ISR HARDWARE] Interrupt triggered on GPIO %d (Button Type %d)!\n", driver->pin, (int)driver->type);
+                    ets_printf("[ISR HARDWARE] Interrupt triggered on GPIO %d (Button Type %d)!\n", driver->pin, (int)driver->type);
 #endif
 
-            if (driver->targetQueue != nullptr) {
-                ButtonEvent evt(driver->type, driver->id, now);
-                BaseType_t xHigherPriorityTaskWoken = pdFALSE;
-                xQueueSendFromISR(driver->targetQueue, &evt, &xHigherPriorityTaskWoken);
-                
+                    if (driver->targetQueue != nullptr) {
+                        ButtonEvent evt(driver->type, driver->id, now);
+                        BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+                        xQueueSendFromISR(driver->targetQueue, &evt, &xHigherPriorityTaskWoken);
+                        
 #ifndef UNIT_TEST
-                if (systemEventGroup != NULL) {
-                    xEventGroupSetBitsFromISR(systemEventGroup, EVENT_BIT_BUTTON_EVENT, &xHigherPriorityTaskWoken);
-                }
+                        if (systemEventGroup != NULL) {
+                            xEventGroupSetBitsFromISR(systemEventGroup, EVENT_BIT_BUTTON_EVENT, &xHigherPriorityTaskWoken);
+                        }
 #endif
 
-                if (xHigherPriorityTaskWoken == pdTRUE) {
-                    portYIELD_FROM_ISR();
+                        if (xHigherPriorityTaskWoken == pdTRUE) {
+                            portYIELD_FROM_ISR();
+                        }
+                    }
                 }
+            } else {
+                driver->lastState = HIGH;
             }
         }
     }
@@ -58,7 +68,9 @@ void ButtonDriver::setListener(IButtonListener* newListener) {
 void ButtonDriver::attachInterruptHandler(QueueHandle_t queue) {
     init();
     targetQueue = queue;
-    attachInterruptArg(digitalPinToInterrupt(pin), isrHandler, this, FALLING);
+    lastState = digitalRead(pin);
+    lastDebounceTime = millis();
+    attachInterruptArg(digitalPinToInterrupt(pin), isrHandler, this, CHANGE);
 }
 
 bool ButtonDriver::isPressed() {

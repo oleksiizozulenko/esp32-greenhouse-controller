@@ -13,15 +13,14 @@ private:
     int pin;
     ButtonType type;
     unsigned long debounceDelay;
-    unsigned long lastDebounceTime;
-    int lastState;
+    volatile unsigned long lastDebounceTime;
+    volatile int lastState;
     QueueHandle_t targetQueue;
     IButtonListener* listener;
 
     static uint8_t nextId;
-    static void IRAM_ATTR isrHandler(void* arg);
-
 public:
+    static void IRAM_ATTR isrHandler(void* arg);
     ButtonDriver(int pin, ButtonType type = ButtonType::UNKNOWN, unsigned long debounceDelay = BUTTON_DEBOUNCE_DELAY_MS);
     ~ButtonDriver();
 
