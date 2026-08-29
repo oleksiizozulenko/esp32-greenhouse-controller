@@ -3,16 +3,24 @@
 void GreenhouseController::vActuatorTimerCallback(TimerHandle_t xTimer) {
     TimerContext* ctx = (TimerContext*)pvTimerGetTimerID(xTimer);
     if (ctx != nullptr && ctx->controller != nullptr) {
+        IControlSubsystem* sub = ctx->controller->getSubsystem(
+            ctx->actuatorType == ActuatorType::VENTILATION ? SubsystemType::VENTILATION :
+            ctx->actuatorType == ActuatorType::LIGHT ? SubsystemType::LIGHTING :
+            ctx->actuatorType == ActuatorType::IRRIGATION ? SubsystemType::IRRIGATION : SubsystemType::UNKNOWN
+        );
         IActuator* act = ctx->controller->getActuator(ctx->actuatorType);
-        if (act != nullptr && act->isOperating()) {
-            Serial.printf("[SAFETY TIMER] %s Timer Expired -> Auto Turning OFF\n", act->getName());
-            act->turnOff();
+        if (sub != nullptr && sub->getMode() == ControlMode::MANUAL) {
+            Serial.printf("[SAFETY TIMER] %s Timer Expired -> Turning Manual State OFF\n", sub->getName());
+            sub->setManualState(ManualState::OFF);
+            if (act != nullptr && act->isOperating()) {
+                act->turnOff();
+            }
         }
     }
 }
 
 GreenhouseController::GreenhouseController(size_t initialCapacity)
-    : actuators{}, actuatorCount(0), timers{}, timerCount(0) {
+    : actuators{}, actuatorCount(0), globalSystemMode(SystemMode::AUTOMATIC), timers{}, timerCount(0) {
     (void)initialCapacity;
     for (size_t i = 0; i < MAX_ACTUATORS; ++i) {
         actuators[i] = nullptr;
@@ -35,6 +43,20 @@ GreenhouseController::~GreenhouseController() {
 bool GreenhouseController::addActuator(IActuator* actuator) {
     if (actuator == nullptr || actuatorCount >= MAX_ACTUATORS) return false;
     actuators[actuatorCount++] = actuator;
+
+    switch (actuator->getType()) {
+        case ActuatorType::VENTILATION:
+            ventilationSubsystem.setActuator(actuator);
+            break;
+        case ActuatorType::LIGHT:
+            lightingSubsystem.setActuator(actuator);
+            break;
+        case ActuatorType::IRRIGATION:
+            irrigationSubsystem.setActuator(actuator);
+            break;
+        default:
+            break;
+    }
     return true;
 }
 
@@ -58,6 +80,40 @@ IActuator* GreenhouseController::getActuator(ActuatorType type) const {
     return nullptr;
 }
 
+IControlSubsystem* GreenhouseController::getSubsystem(SubsystemType type) {
+    switch (type) {
+        case SubsystemType::VENTILATION: return &ventilationSubsystem;
+        case SubsystemType::LIGHTING: return &lightingSubsystem;
+        case SubsystemType::IRRIGATION: return &irrigationSubsystem;
+        default: return nullptr;
+    }
+}
+
+const IControlSubsystem* GreenhouseController::getSubsystem(SubsystemType type) const {
+    switch (type) {
+        case SubsystemType::VENTILATION: return &ventilationSubsystem;
+        case SubsystemType::LIGHTING: return &lightingSubsystem;
+        case SubsystemType::IRRIGATION: return &irrigationSubsystem;
+        default: return nullptr;
+    }
+}
+
+IControlSubsystem* GreenhouseController::getSubsystemForButton(ButtonType button) {
+    switch (button) {
+        case ButtonType::VENTILATION: return &ventilationSubsystem;
+        case ButtonType::LIGHT: return &lightingSubsystem;
+        case ButtonType::IRRIGATION: return &irrigationSubsystem;
+        default: return nullptr;
+    }
+}
+
+void GreenhouseController::setSystemMode(SystemMode mode) {
+    globalSystemMode = mode;
+    ControlMode targetMode = (mode == SystemMode::AUTOMATIC ? ControlMode::AUTO : ControlMode::MANUAL);
+    ventilationSubsystem.setMode(targetMode);
+    lightingSubsystem.setMode(targetMode);
+    irrigationSubsystem.setMode(targetMode);
+}
 
 GreenhouseController::ActuatorTimer* GreenhouseController::getActuatorTimer(ActuatorType type) {
     for (size_t i = 0; i < timerCount; ++i) {
@@ -112,30 +168,41 @@ void GreenhouseController::stopTimerFor(ActuatorType type) {
 }
 
 void GreenhouseController::onButtonPressed(ButtonType button) {
-    ActuatorType targetType = ActuatorType::UNKNOWN;
-    if (button == ButtonType::VENTILATION) {
-        targetType = ActuatorType::VENTILATION;
-    } else if (button == ButtonType::IRRIGATION) {
-        targetType = ActuatorType::IRRIGATION;
-    } else if (button == ButtonType::LIGHT) {
-        targetType = ActuatorType::LIGHT;
+    IControlSubsystem* sub = getSubsystemForButton(button);
+    if (sub == nullptr) {
+        Serial.printf("[MANUAL EVENT] Button %d Pressed -> No Subsystem registered!\n", (int)button);
+        return;
     }
 
+    ActuatorType targetType = (button == ButtonType::VENTILATION) ? ActuatorType::VENTILATION :
+                              (button == ButtonType::LIGHT) ? ActuatorType::LIGHT :
+                              (button == ButtonType::IRRIGATION) ? ActuatorType::IRRIGATION : ActuatorType::UNKNOWN;
+
     IActuator* act = getActuator(targetType);
-    if (act != nullptr) {
-        if (act->isOperating()) {
-            Serial.printf("[MANUAL EVENT] Button Pressed -> Stopping %s (Pin %d)\n", act->getName(), act->getPin());
-            act->turnOff();
-            stopTimerFor(targetType);
-        } else {
-            uint32_t timeoutMs = getActuatorTimeout(targetType);
-            Serial.printf("[MANUAL EVENT] Button Pressed -> Starting %s! (Pin %d - Safety Timer: %lu ms)\n",
-                          act->getName(), act->getPin(), (unsigned long)timeoutMs);
+
+    if (sub->getMode() == ControlMode::AUTO) {
+        Serial.printf("[MANUAL EVENT] Button Pressed -> Switching %s Subsystem to MANUAL ON\n", sub->getName());
+        sub->setMode(ControlMode::MANUAL);
+        sub->setManualState(ManualState::ON);
+        if (act != nullptr) {
             act->turnOn();
-            startTimerFor(targetType, timeoutMs);
         }
+        startTimerFor(targetType, getActuatorTimeout(targetType));
     } else {
-        Serial.printf("[MANUAL EVENT] Button Pressed -> WARNING: No Actuator registered for Target Type %d!\n", (int)targetType);
+        sub->toggleManualState();
+        if (sub->getManualState() == ManualState::ON) {
+            Serial.printf("[MANUAL EVENT] Button Pressed -> Toggling %s Manual State to ON\n", sub->getName());
+            if (act != nullptr) {
+                act->turnOn();
+            }
+            startTimerFor(targetType, getActuatorTimeout(targetType));
+        } else {
+            Serial.printf("[MANUAL EVENT] Button Pressed -> Toggling %s Manual State to OFF\n", sub->getName());
+            if (act != nullptr) {
+                act->turnOff();
+            }
+            stopTimerFor(targetType);
+        }
     }
 }
 
@@ -160,98 +227,23 @@ void GreenhouseController::begin() {
     }
 }
 
-void GreenhouseController::processAutomatic(const SensorDataMap& readings) {
-    SensorData tempData = readings.get(SensorType::TEMPERATURE);
-    SensorData humData = readings.get(SensorType::HUMIDITY);
-    IActuator* vent = getActuator(ActuatorType::VENTILATION);
-    if (vent != nullptr) {
-        bool tempError = tempData.isError;
-        bool humError = humData.isError;
+void GreenhouseController::update(bool isAutoMode, const SensorDataMap& readings, SystemHealthState& healthState) {
+    globalSystemMode = isAutoMode ? SystemMode::AUTOMATIC : SystemMode::MANUAL;
 
-        bool highTemp = !tempError && (tempData.value > TEMP_THRESHOLD_HIGH);
-        bool highHum = !humError && (humData.value > HUMIDITY_THRESHOLD_HIGH);
-
-        bool normalTemp = tempError || (tempData.value < (TEMP_THRESHOLD_HIGH - TEMP_HYSTERESIS));
-        bool normalHum = humError || (humData.value < (HUMIDITY_THRESHOLD_HIGH - HUMIDITY_HYSTERESIS));
-
-        if (tempError && humError) {
-            if (vent->isOperating()) {
-                Serial.printf("[AUTO] Temp & Humidity Sensor Error -> Turning OFF Ventilation (%s)\n", vent->getName());
-                vent->turnOff();
-                stopTimerFor(ActuatorType::VENTILATION);
-            }
-        } else if (highTemp || highHum) {
-            if (!vent->isOperating()) {
-                Serial.printf("[AUTO] High %s -> Opening Ventilation (%s)\n",
-                              highTemp ? "Temp" : "Air Humidity", vent->getName());
-                vent->turnOn();
-            }
-        } else if (normalTemp && normalHum && vent->isOperating()) {
-            Serial.printf("[AUTO] Normal Temp & Humidity -> Closing Ventilation (%s)\n", vent->getName());
-            vent->turnOff();
-            stopTimerFor(ActuatorType::VENTILATION);
-        }
+    if (!isAutoMode) {
+        ventilationSubsystem.setMode(ControlMode::MANUAL);
+        lightingSubsystem.setMode(ControlMode::MANUAL);
+        irrigationSubsystem.setMode(ControlMode::MANUAL);
     }
 
-    SensorData soilData = readings.get(SensorType::SOIL);
-    IActuator* irrig = getActuator(ActuatorType::IRRIGATION);
-    if (irrig != nullptr) {
-        if (soilData.isError) {
-            if (irrig->isOperating()) {
-                Serial.printf("[AUTO] Soil Sensor Error -> Turning OFF Irrigation (%s)\n", irrig->getName());
-                irrig->turnOff();
-                stopTimerFor(ActuatorType::IRRIGATION);
-            }
-        } else if (soilData.value < SOIL_DRY_THRESHOLD) {
-            if (!irrig->isOperating()) {
-                Serial.printf("[AUTO] Low Soil Moisture (%.2f%% < %d%%) -> Turning ON Irrigation (%s)\n",
-                              soilData.value, SOIL_DRY_THRESHOLD, irrig->getName());
-                irrig->turnOn();
-            }
-        } else if (soilData.value > (SOIL_DRY_THRESHOLD + SOIL_HYSTERESIS) && irrig->isOperating()) {
-            Serial.printf("[AUTO] Normal Soil Moisture (%.2f%% > %d%%) -> Turning OFF Irrigation (%s)\n",
-                          soilData.value, SOIL_DRY_THRESHOLD + SOIL_HYSTERESIS, irrig->getName());
-            irrig->turnOff();
-            stopTimerFor(ActuatorType::IRRIGATION);
-        }
-    }
+    SensorData temp = readings.get(SensorType::TEMPERATURE);
+    SensorData hum = readings.get(SensorType::HUMIDITY);
+    SensorData light = readings.get(SensorType::LIGHT);
+    SensorData soil = readings.get(SensorType::SOIL);
 
-    SensorData lightData = readings.get(SensorType::LIGHT);
-    IActuator* light = getActuator(ActuatorType::LIGHT);
-    if (light != nullptr) {
-        if (lightData.isError) {
-            if (light->isOperating()) {
-                Serial.printf("[AUTO] Light Sensor Error -> Turning OFF Light (%s)\n", light->getName());
-                light->turnOff();
-                stopTimerFor(ActuatorType::LIGHT);
-            }
-        } else if (lightData.value < LIGHT_DARK_THRESHOLD && !light->isOperating()) {
-            Serial.printf("[AUTO] Low Light (%.2f < %.2f) -> Turning ON Light (%s)\n",
-                          lightData.value, LIGHT_DARK_THRESHOLD, light->getName());
-            light->turnOn();
-        } else if (lightData.value > (LIGHT_DARK_THRESHOLD + LIGHT_HYSTERESIS) && light->isOperating()) {
-            Serial.printf("[AUTO] Normal Light (%.2f > %.2f) -> Turning OFF Light (%s)\n",
-                          lightData.value, LIGHT_DARK_THRESHOLD + LIGHT_HYSTERESIS, light->getName());
-            light->turnOff();
-            stopTimerFor(ActuatorType::LIGHT);
-        }
-    }
-}
-
-
-void GreenhouseController::processManual(const SensorDataMap& readings, const SystemHealthState& healthState) {
-    (void)readings;
-    if (healthState.hasCriticalHazard || healthState.hasOperatorAdvisory) {
-        Serial.printf("[MANUAL] SAFETY ALERT: %s\n", healthState.advisoryMsg);
-    }
-}
-
-void GreenhouseController::update(bool isAutoMode, const SensorDataMap& readings, const SystemHealthState& healthState) {
-    if (isAutoMode) {
-        processAutomatic(readings);
-    } else {
-        processManual(readings, healthState);
-    }
+    ventilationSubsystem.update(temp, hum, healthState);
+    lightingSubsystem.update(light, healthState);
+    irrigationSubsystem.update(soil, healthState);
 }
 
 void GreenhouseController::update(bool isAutoMode, const SensorDataMap& readings) {
