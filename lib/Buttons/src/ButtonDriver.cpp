@@ -15,14 +15,19 @@ void IRAM_ATTR ButtonDriver::isrHandler(void* arg) {
     ButtonDriver* driver = static_cast<ButtonDriver*>(arg);
     if (driver != nullptr) {
         unsigned long now = millis();
-        unsigned long elapsed = now - driver->lastDebounceTime;
-        driver->lastDebounceTime = now;
+        int currentState = digitalRead(driver->pin);
 
-        if (elapsed > driver->debounceDelay) {
-            int currentState = digitalRead(driver->pin);
-            if (currentState == LOW) {
-                if (driver->lastState == HIGH) {
+        if (currentState == HIGH && driver->lastState == LOW && (now - driver->lastDebounceTime >= driver->debounceDelay)) {
+            driver->lastState = HIGH;
+            driver->lastDebounceTime = now;
+            return;
+        }
+
+        if (currentState == LOW) {
+            if (driver->lastState == HIGH || (now - driver->lastDebounceTime >= driver->debounceDelay)) {
+                if (now - driver->lastDebounceTime >= driver->debounceDelay) {
                     driver->lastState = LOW;
+                    driver->lastDebounceTime = now;
 
 #ifndef UNIT_TEST
                     ets_printf("[ISR HARDWARE] Interrupt triggered on GPIO %d (Button Type %d)!\n", driver->pin, (int)driver->type);
@@ -44,8 +49,6 @@ void IRAM_ATTR ButtonDriver::isrHandler(void* arg) {
                         }
                     }
                 }
-            } else {
-                driver->lastState = HIGH;
             }
         }
     }

@@ -35,24 +35,18 @@ SensorData TemperatureSensor::read() {
 
     lastReadTime = currentTime;
 
-    float temp = NAN;
-    for (uint8_t attempt = 0; attempt < DIGITAL_SENSOR_MAX_RETRIES; ++attempt) {
-        temp = dht ? dht->readTemperature() : NAN;
-        if (!isnan(temp)) {
-            lastValidTemperature = temp;
-            lastValidTime = currentTime;
-            return {temp, false};
-        }
-        if (attempt < DIGITAL_SENSOR_MAX_RETRIES - 1) {
-            delay(DIGITAL_SENSOR_RETRY_DELAY_MS);
-        }
+    float temp = dht ? dht->readTemperature() : NAN;
+    if (!isnan(temp)) {
+        lastValidTemperature = temp;
+        lastValidTime = currentTime;
+        return {temp, false};
     }
 
     if (!isnan(lastValidTemperature) && (currentTime - lastValidTime <= DIGITAL_SENSOR_FALLBACK_TIMEOUT)) {
         return {lastValidTemperature, false};
     }
 
-    return {temp, true};
+    return {NAN, true};
 }
 
 const char* TemperatureSensor::getUnit() const {

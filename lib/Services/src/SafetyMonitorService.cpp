@@ -18,6 +18,8 @@ SystemHealthState SafetyMonitorService::evaluate(const SensorDataMap& readings, 
         if (s == nullptr) continue;
 
         if (d.isError || !isfinite(d.value)) {
+            Serial.printf("[SAFETY MONITOR] Hardware Fault on %s (Pin %d): isError=%d, value=%.2f\n",
+                          s->getName(), s->getPin(), d.isError, d.value);
             state.hasHardwareError = true;
             break;
         }
@@ -25,21 +27,29 @@ SystemHealthState SafetyMonitorService::evaluate(const SensorDataMap& readings, 
         switch (s->getType()) {
             case SensorType::TEMPERATURE:
                 if (d.value < SENSOR_TEMP_MIN_ERROR || d.value > SENSOR_TEMP_MAX_ERROR) {
+                    Serial.printf("[SAFETY MONITOR] Temp Out of Range on %s (Pin %d): %.2f C (Limits: %.1f .. %.1f)\n",
+                                  s->getName(), s->getPin(), d.value, SENSOR_TEMP_MIN_ERROR, SENSOR_TEMP_MAX_ERROR);
                     state.hasHardwareError = true;
                 }
                 break;
             case SensorType::HUMIDITY:
                 if (d.value < SENSOR_HUMIDITY_MIN_ERROR || d.value > SENSOR_HUMIDITY_MAX_ERROR) {
+                    Serial.printf("[SAFETY MONITOR] Humidity Out of Range on %s (Pin %d): %.2f %% (Limits: %.1f .. %.1f)\n",
+                                  s->getName(), s->getPin(), d.value, SENSOR_HUMIDITY_MIN_ERROR, SENSOR_HUMIDITY_MAX_ERROR);
                     state.hasHardwareError = true;
                 }
                 break;
             case SensorType::SOIL:
                 if (d.value < SENSOR_SOIL_MIN_ERROR || d.value > SENSOR_SOIL_MAX_ERROR) {
+                    Serial.printf("[SAFETY MONITOR] Soil Out of Range on %s (Pin %d): %.2f %% (Limits: %.1f .. %.1f)\n",
+                                  s->getName(), s->getPin(), d.value, SENSOR_SOIL_MIN_ERROR, SENSOR_SOIL_MAX_ERROR);
                     state.hasHardwareError = true;
                 }
                 break;
             case SensorType::LIGHT:
                 if (d.value < SENSOR_LIGHT_MIN_ERROR || d.value > SENSOR_LIGHT_MAX_ERROR) {
+                    Serial.printf("[SAFETY MONITOR] Light Out of Range on %s (Pin %d): %.2f lx (Limits: %.1f .. %.1f)\n",
+                                  s->getName(), s->getPin(), d.value, SENSOR_LIGHT_MIN_ERROR, SENSOR_LIGHT_MAX_ERROR);
                     state.hasHardwareError = true;
                 }
                 break;
