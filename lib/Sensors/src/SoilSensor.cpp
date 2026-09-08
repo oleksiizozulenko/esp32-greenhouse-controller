@@ -15,7 +15,12 @@ SensorData SoilSensor::read() {
 
     lastReadTime = currentTime;
 
-    float soilMoisture = adcToPercentage(analogRead(pin));
+    // LM393 analog soil moisture sensors output HIGH (~4095) in air (0% moisture)
+    // and LOW (~0) in water (100% moisture).
+    float rawPercentage = adcToPercentage(analogRead(pin));
+    float soilMoisture = 100.0f - rawPercentage;
+    if (soilMoisture < 0.0f) soilMoisture = 0.0f;
+    if (soilMoisture > 100.0f) soilMoisture = 100.0f;
 
     if (isnan(soilMoisture)) {
         return {lastSoilMoisture, true};

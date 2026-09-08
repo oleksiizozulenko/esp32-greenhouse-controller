@@ -20,7 +20,7 @@ HumiditySensor::~HumiditySensor() {
 }
 
 void HumiditySensor::init() {
-    pinMode(pin, INPUT);
+    pinMode(pin, INPUT_PULLUP);
     if (dht != nullptr) {
         dht->begin();
     }
