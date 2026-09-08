@@ -23,7 +23,7 @@ public:
     DHT(uint8_t pin, uint8_t type)
         : _pin(pin), _type(type), _temperature(25.0f), _humidity(50.0f) {}
 
-    void begin() {}
+    void begin(uint8_t usec = 55) { (void)usec; }
 
     float readTemperature(bool S = false, bool force = false) {
         (void)S; (void)force;

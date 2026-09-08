@@ -15,7 +15,7 @@ SemaphoreHandle_t healthStateMutex = NULL;
 EventGroupHandle_t systemEventGroup = NULL;
 
 // System Mode & State Variables
-SystemMode currentMode = SystemMode::MANUAL;
+SystemMode currentMode = SystemMode::AUTOMATIC;
 SystemHealthState globalHealthState;
 
 // Task Handles for Memory Profiling

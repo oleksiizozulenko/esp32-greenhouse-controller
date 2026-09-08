@@ -29,9 +29,55 @@ SensorsService sensorsService;
 SafetyMonitorService safetyMonitorService;
 GreenhouseController greenhouseController;
 
+void debugRawDhtPin(int pin) {
+  Serial.printf("\n--- [RAW HARDWARE DIAGNOSTIC TEST ON GPIO %d] ---\n", pin);
+  
+  pinMode(pin, INPUT_PULLUP);
+  delay(100);
+  int idleState = digitalRead(pin);
+  Serial.printf("  1. Idle Voltage State (INPUT_PULLUP): %s (%d)\n", idleState == HIGH ? "HIGH (~3.3V)" : "LOW (~0V)", idleState);
+
+  pinMode(pin, OUTPUT);
+  digitalWrite(pin, LOW);
+  delay(20);
+  
+  pinMode(pin, INPUT_PULLUP);
+  
+  unsigned long timeout = micros();
+  while (digitalRead(pin) == HIGH) {
+    if (micros() - timeout > 5000) break;
+  }
+  
+  int responseLowTime = 0;
+  int responseHighTime = 0;
+  unsigned long lowStart = micros();
+  if (digitalRead(pin) == LOW) {
+    while (digitalRead(pin) == LOW) {
+      if (micros() - lowStart > 5000) break;
+    }
+    responseLowTime = micros() - lowStart;
+    
+    unsigned long highStart = micros();
+    while (digitalRead(pin) == HIGH) {
+      if (micros() - highStart > 5000) break;
+    }
+    responseHighTime = micros() - highStart;
+  }
+  
+  Serial.printf("  2. Start Pulse Sent -> Sensor Response LOW: %d us, HIGH: %d us\n", responseLowTime, responseHighTime);
+  if (responseLowTime > 0) {
+    Serial.println("  ==> SUCCESS: Sensor is physically responding to start pulse!");
+  } else {
+    Serial.println("  ==> FAIL: No response pulse detected from sensor.");
+  }
+  Serial.println("---------------------------------------------------\n");
+}
+
 void setup() {
   Serial.begin(115200);
   Serial.println("Greenhouse Controller Starting (Modular RTOS Tasks Mode)...");
+
+  debugRawDhtPin(PIN_DHT);
 
   esp_task_wdt_init(WDT_TIMEOUT_SECONDS, true);
 
@@ -39,9 +85,9 @@ void setup() {
 
 
   // --- 1. SENSORS  ---
-  sensorsService.addSensor(&humiditySensor);
+  // sensorsService.addSensor(&humiditySensor); // Temporarily disabled (awaiting replacement DHT sensor)
   sensorsService.addSensor(&soilSensor);
-  sensorsService.addSensor(&temperatureSensor);
+  // sensorsService.addSensor(&temperatureSensor); // Temporarily disabled (awaiting replacement DHT sensor)
   sensorsService.addSensor(&lightSensor);
   sensorsService.begin();
 

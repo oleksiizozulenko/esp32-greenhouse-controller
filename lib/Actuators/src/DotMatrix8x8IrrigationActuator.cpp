@@ -16,14 +16,14 @@ bool DotMatrix8x8IrrigationActuator::begin() {
 
 bool DotMatrix8x8IrrigationActuator::turnOn() {
     activeState = true;
-    digitalWrite(pin, LOW);
+    digitalWrite(pin, HIGH);
     Serial.printf("[HARDWARE ACTUATOR] 8x8 LED Matrix (Pin %d) -> POWERED ON (Irrigation Active)\n", pin);
     return true;
 }
 
 bool DotMatrix8x8IrrigationActuator::turnOff() {
     activeState = false;
-    digitalWrite(pin, HIGH);
+    digitalWrite(pin, LOW);
     Serial.printf("[HARDWARE ACTUATOR] 8x8 LED Matrix (Pin %d) -> POWERED OFF\n", pin);
     return true;
 }

@@ -35,24 +35,18 @@ SensorData HumiditySensor::read() {
 
     lastReadTime = currentTime;
 
-    float humidity = NAN;
-    for (uint8_t attempt = 0; attempt < DIGITAL_SENSOR_MAX_RETRIES; ++attempt) {
-        humidity = dht ? dht->readHumidity() : NAN;
-        if (!isnan(humidity)) {
-            lastValidHumidity = humidity;
-            lastValidTime = currentTime;
-            return {humidity, false};
-        }
-        if (attempt < DIGITAL_SENSOR_MAX_RETRIES - 1) {
-            delay(DIGITAL_SENSOR_RETRY_DELAY_MS);
-        }
+    float humidity = dht ? dht->readHumidity() : NAN;
+    if (!isnan(humidity)) {
+        lastValidHumidity = humidity;
+        lastValidTime = currentTime;
+        return {humidity, false};
     }
 
     if (!isnan(lastValidHumidity) && (currentTime - lastValidTime <= DIGITAL_SENSOR_FALLBACK_TIMEOUT)) {
         return {lastValidHumidity, false};
     }
 
-    return {humidity, true};
+    return {NAN, true};
 }
 
 const char* HumiditySensor::getUnit() const {

@@ -49,9 +49,9 @@ void LightingSubsystem::update(SensorData lightData, SystemHealthState& healthSt
         if (actuator->isOperating()) {
             actuator->turnOff();
         }
-    } else if (lightData.value < config.lightDarkThreshold && !actuator->isOperating()) {
+    } else if (lightData.value < config.lightLowThreshold && !actuator->isOperating()) {
         actuator->turnOn();
-    } else if (lightData.value > (config.lightDarkThreshold + config.lightHysteresis) && actuator->isOperating()) {
+    } else if (lightData.value > config.lightHighThreshold && actuator->isOperating()) {
         actuator->turnOff();
     }
 }

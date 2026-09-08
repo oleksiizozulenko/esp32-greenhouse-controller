@@ -20,7 +20,7 @@ inline SystemMode toggleSystemMode(SystemMode currentMode) {
 // ==========================================
 
 // Sensors
-#define PIN_DHT           19
+#define PIN_DHT           23
 #define DHT_TYPE          DHT11
 #define PIN_TEMP          PIN_DHT
 #define PIN_LDR           35 // light sensor (LDR)
@@ -75,15 +75,17 @@ inline SystemMode toggleSystemMode(SystemMode currentMode) {
 #define SOIL_HYSTERESIS       5     // Hysteresis (%) -> turn off at 35%
 
 // Light Intensity (Lux)
-#define LIGHT_DARK_THRESHOLD  3000.0f  // Low light / darkness threshold (lx)
-#define LIGHT_HYSTERESIS      500.0f   // Light hysteresis (lx) -> turns off at 3500.0 lx
+#define LIGHT_LOW_THRESHOLD   300.0f   // Low light level threshold (lx) -> turn on light below 300 lx
+#define LIGHT_HIGH_THRESHOLD  1000.0f  // High light level threshold (lx) -> turn off light above 1000 lx (good lighting)
+#define LIGHT_DARK_THRESHOLD  LIGHT_LOW_THRESHOLD
+#define LIGHT_HYSTERESIS      (LIGHT_HIGH_THRESHOLD - LIGHT_LOW_THRESHOLD)
 
 // Sensor Error Thresholds
 #define SENSOR_TEMP_MIN_ERROR     -5.0f      // Temperature < -5°C -> Sensor Error
 #define SENSOR_TEMP_MAX_ERROR     80.0f      // Temperature > 80°C -> Sensor Error
 #define SENSOR_HUMIDITY_MIN_ERROR 0.0f       // Humidity < 0% -> Sensor Error
 #define SENSOR_HUMIDITY_MAX_ERROR 90.0f      // Humidity > 90% -> Sensor Error
-#define SENSOR_SOIL_MIN_ERROR     0.0f       // Soil moisture < 0% -> Sensor Error
+#define SENSOR_SOIL_MIN_ERROR     1.0f       // Soil moisture < 0% -> Sensor Error
 #define SENSOR_SOIL_MAX_ERROR     100.0f     // Soil moisture > 100% -> Sensor Error
 #define SENSOR_LIGHT_MIN_ERROR    0.0f       // Min lux
 #define SENSOR_LIGHT_MAX_ERROR    100000.0f  // Max lux

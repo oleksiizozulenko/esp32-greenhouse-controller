@@ -256,7 +256,18 @@ void test_auto_irrigation_sensor_error_isolation(void) {
 // ----------------------------------------------------
 
 void test_auto_light_darkness_turns_on(void) {
-    lightSensor->setData(2500.0f, false); // < 3000 lx threshold
+    lightSensor->setData(250.0f, false); // < 300 lx threshold
+    SensorDataMap readings(1);
+    readings[0] = {lightSensor, lightSensor->read()};
+
+    automation->update(true, readings);
+
+    TEST_ASSERT_TRUE(lightActuator->isOn());
+}
+
+void test_auto_light_low_level_89lx_turns_on(void) {
+    automation->setSystemMode(SystemMode::AUTOMATIC);
+    lightSensor->setData(89.0f, false); // 89 lx < 300 lx threshold
     SensorDataMap readings(1);
     readings[0] = {lightSensor, lightSensor->read()};
 
@@ -268,8 +279,8 @@ void test_auto_light_darkness_turns_on(void) {
 void test_auto_light_hysteresis_holds_on(void) {
     lightActuator->turnOn();
 
-    // Light rises to 3200 (in hysteresis zone 3000 - 3500 lx)
-    lightSensor->setData(3200.0f, false);
+    // Light rises to 500 lx (between 300 - 1000 lx)
+    lightSensor->setData(500.0f, false);
     SensorDataMap readings(1);
     readings[0] = {lightSensor, lightSensor->read()};
 
@@ -281,8 +292,8 @@ void test_auto_light_hysteresis_holds_on(void) {
 void test_auto_light_daylight_turns_off(void) {
     lightActuator->turnOn();
 
-    // Light rises above 3500 lx (3000 + 500)
-    lightSensor->setData(3600.0f, false);
+    // Light rises above 1000 lx threshold
+    lightSensor->setData(1200.0f, false);
     SensorDataMap readings(1);
     readings[0] = {lightSensor, lightSensor->read()};
 
@@ -397,6 +408,24 @@ void test_auto_mode_supports_manual_button_overrides(void) {
     TEST_ASSERT_TRUE(ventActuator->isOn());
     TEST_ASSERT_TRUE(irrigActuator->isOn());
     TEST_ASSERT_TRUE(lightActuator->isOn());
+}
+
+void test_auto_mode_button_toggles_active_actuator_off(void) {
+    // Temp is high (30.0°C) -> Vent actuator automatically turns ON in AUTO mode
+    tempSensor->setData(30.0f, false);
+    SensorDataMap readings(1);
+    readings[0] = {tempSensor, tempSensor->read()};
+
+    automation->update(true, readings);
+    TEST_ASSERT_TRUE(ventActuator->isOn());
+
+    // User presses ventilation button -> MUST toggle ventilation OFF
+    automation->onButtonPressed(ButtonType::VENTILATION);
+    TEST_ASSERT_FALSE(ventActuator->isOn());
+
+    // User presses ventilation button again -> MUST toggle ventilation ON
+    automation->onButtonPressed(ButtonType::VENTILATION);
+    TEST_ASSERT_TRUE(ventActuator->isOn());
 }
 
 void test_manual_mode_null_drivers_safety(void) {
@@ -775,6 +804,27 @@ void test_auto_mode_critical_temp_triggers_alarm_and_forces_actuator_on(void) {
     TEST_ASSERT_TRUE(ventActuator->isOn());
 }
 
+void test_pin_assignments_match_hardware_spec(void) {
+    TEST_ASSERT_EQUAL_INT(13, PIN_ACTUATOR_VENT);
+    TEST_ASSERT_EQUAL_INT(32, PIN_BTN_MODE);
+}
+
+void test_timer_expiration_restores_auto_mode(void) {
+    automation->setSystemMode(SystemMode::AUTOMATIC);
+    automation->onButtonPressed(ButtonType::VENTILATION);
+
+    TEST_ASSERT_EQUAL(ControlMode::MANUAL, automation->getVentilationSubsystem().getMode());
+    TEST_ASSERT_TRUE(ventActuator->isOn());
+
+    GreenhouseController::ActuatorTimer* timerObj = automation->getActuatorTimer(ActuatorType::VENTILATION);
+    TEST_ASSERT_NOT_NULL(timerObj);
+
+    triggerMockTimerCallback(timerObj->timer);
+
+    TEST_ASSERT_FALSE(ventActuator->isOn());
+    TEST_ASSERT_EQUAL(ControlMode::AUTO, automation->getVentilationSubsystem().getMode());
+}
+
 int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
@@ -798,6 +848,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_auto_irrigation_sensor_error_isolation);
 
     RUN_TEST(test_auto_light_darkness_turns_on);
+    RUN_TEST(test_auto_light_low_level_89lx_turns_on);
     RUN_TEST(test_auto_light_hysteresis_holds_on);
     RUN_TEST(test_auto_light_daylight_turns_off);
     RUN_TEST(test_auto_light_sensor_error_isolation);
@@ -806,6 +857,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_manual_mode_button_toggles);
     RUN_TEST(test_manual_mode_button_override_under_critical_hazard);
     RUN_TEST(test_auto_mode_supports_manual_button_overrides);
+    RUN_TEST(test_auto_mode_button_toggles_active_actuator_off);
     RUN_TEST(test_manual_mode_null_drivers_safety);
     RUN_TEST(test_manual_mode_critical_temp_alert);
     RUN_TEST(test_manual_mode_critical_soil_alert);
@@ -832,6 +884,8 @@ int main(int argc, char **argv) {
     RUN_TEST(test_subsystem_independent_modes);
     RUN_TEST(test_manual_mode_critical_temp_triggers_alarm_without_overriding_manual_off);
     RUN_TEST(test_auto_mode_critical_temp_triggers_alarm_and_forces_actuator_on);
+    RUN_TEST(test_pin_assignments_match_hardware_spec);
+    RUN_TEST(test_timer_expiration_restores_auto_mode);
 
     return UNITY_END();
 }
