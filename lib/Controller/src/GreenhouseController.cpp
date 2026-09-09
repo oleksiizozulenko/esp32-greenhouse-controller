@@ -9,7 +9,7 @@ void GreenhouseController::vActuatorTimerCallback(TimerHandle_t xTimer) {
             ctx->actuatorType == ActuatorType::IRRIGATION ? SubsystemType::IRRIGATION : SubsystemType::UNKNOWN
         );
         IActuator* act = ctx->controller->getActuator(ctx->actuatorType);
-        if (sub != nullptr && sub->getMode() == ControlMode::MANUAL) {
+        if (sub != nullptr) {
             Serial.printf("[SAFETY TIMER] %s Timer Expired -> Turning Manual State OFF\n", sub->getName());
             sub->setManualState(ManualState::OFF);
             if (ctx->controller->getSystemMode() == SystemMode::AUTOMATIC) {
@@ -116,6 +116,14 @@ void GreenhouseController::setSystemMode(SystemMode mode) {
     ventilationSubsystem.setMode(targetMode);
     lightingSubsystem.setMode(targetMode);
     irrigationSubsystem.setMode(targetMode);
+    if (mode == SystemMode::AUTOMATIC) {
+        ventilationSubsystem.setManualState(ManualState::OFF);
+        lightingSubsystem.setManualState(ManualState::OFF);
+        irrigationSubsystem.setManualState(ManualState::OFF);
+        stopTimerFor(ActuatorType::VENTILATION);
+        stopTimerFor(ActuatorType::LIGHT);
+        stopTimerFor(ActuatorType::IRRIGATION);
+    }
 }
 
 GreenhouseController::ActuatorTimer* GreenhouseController::getActuatorTimer(ActuatorType type) {

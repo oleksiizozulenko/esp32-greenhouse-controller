@@ -85,7 +85,7 @@ inline SystemMode toggleSystemMode(SystemMode currentMode) {
 #define SENSOR_TEMP_MAX_ERROR     80.0f      // Temperature > 80°C -> Sensor Error
 #define SENSOR_HUMIDITY_MIN_ERROR 0.0f       // Humidity < 0% -> Sensor Error
 #define SENSOR_HUMIDITY_MAX_ERROR 90.0f      // Humidity > 90% -> Sensor Error
-#define SENSOR_SOIL_MIN_ERROR     1.0f       // Soil moisture < 0% -> Sensor Error
+#define SENSOR_SOIL_MIN_ERROR     0.0f       // Soil moisture < 0% -> Sensor Error
 #define SENSOR_SOIL_MAX_ERROR     100.0f     // Soil moisture > 100% -> Sensor Error
 #define SENSOR_LIGHT_MIN_ERROR    0.0f       // Min lux
 #define SENSOR_LIGHT_MAX_ERROR    100000.0f  // Max lux
