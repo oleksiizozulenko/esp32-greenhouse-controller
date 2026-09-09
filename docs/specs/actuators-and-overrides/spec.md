@@ -17,16 +17,16 @@ The system hardware interfaces SHALL conform to the pin configuration defined in
 
 | Component / Function | Config Constant | GPIO Pin | Interface Type |
 |---|---|---|---|
-| DHT22 Temp & Humidity | `PIN_DHT` / `PIN_TEMP` | `GPIO 19` | Digital 1-Wire |
+| DHT22 Temp & Humidity | `PIN_DHT` / `PIN_TEMP` | `GPIO 23` | Digital 1-Wire |
 | LDR Light Sensor | `PIN_LDR` | `GPIO 35` | Analog (ADC1_CH7) |
 | Soil Moisture Sensor | `PIN_SOIL_POT` | `GPIO 34` | Analog (ADC1_CH6) |
-| Mode Selector Button | `PIN_BTN_MODE` | `GPIO 12` | Digital Input (Pullup) |
+| Mode Selector Button | `PIN_BTN_MODE` | `GPIO 32` | Digital Input (Pullup) |
 | Irrigation Manual Button | `PIN_BTN_IRRIG` | `GPIO 14` | Digital Input (Pullup) |
 | Ventilation Manual Button | `PIN_BTN_VENT` | `GPIO 27` | Digital Input (Pullup) |
 | Light Manual Button | `PIN_BTN_LIGHT` | `GPIO 26` | Digital Input (Pullup) |
-| Ventilation Servo PWM | `PIN_ACTUATOR_VENT` | `GPIO 5` | Servo PWM Output |
-| Irrigation Relay | `PIN_ACTUATOR_IRRIG` | `GPIO 16` | Digital Relay Output |
-| Growth Light Relay | `PIN_ACTUATOR_LIGHT` | `GPIO 17` | Digital Relay Output |
+| Ventilation Servo PWM | `PIN_ACTUATOR_VENT` | `GPIO 13` | Servo PWM Output |
+| Irrigation Relay | `PIN_ACTUATOR_IRRIG` | `GPIO 33` | Digital Relay Output |
+| Growth Light Relay | `PIN_ACTUATOR_LIGHT` | `GPIO 25` | Digital Relay Output |
 | Status LED Normal | `PIN_LED_GREEN` | `GPIO 15` | Digital Output |
 | Status LED Error | `PIN_LED_RED` | `GPIO 4` | Digital Output |
 | Acoustic Alert Buzzer | `PIN_BUZZER` | `GPIO 18` | PWM / Tone |
