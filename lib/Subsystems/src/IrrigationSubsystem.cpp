@@ -33,6 +33,15 @@ void IrrigationSubsystem::update(SensorData soilData, SystemHealthState& healthS
 
     if (actuator == nullptr) return;
 
+    // Critical Overwater Safety Override: Force pump OFF if soil moisture exceeds critical high limit
+    if (isOverwatered) {
+        manualState = ManualState::OFF;
+        if (actuator->isOperating()) {
+            actuator->turnOff();
+        }
+        return;
+    }
+
     if (mode == ControlMode::MANUAL) {
         if (manualState == ManualState::ON) {
             if (!actuator->isOperating()) {

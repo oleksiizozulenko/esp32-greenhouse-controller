@@ -825,6 +825,28 @@ void test_timer_expiration_restores_auto_mode(void) {
     TEST_ASSERT_EQUAL(ControlMode::AUTO, automation->getVentilationSubsystem().getMode());
 }
 
+void test_manual_mode_soil_flood_forces_actuator_off(void) {
+    automation->onButtonPressed(ButtonType::IRRIGATION);
+    TEST_ASSERT_TRUE(irrigActuator->isOn());
+
+    soilSensor->setData(92.0f, false); // > 85% flood threshold
+    SensorDataMap readings(1);
+    readings[0] = {soilSensor, soilSensor->read()};
+
+    automation->update(false, readings);
+
+    TEST_ASSERT_FALSE(irrigActuator->isOn());
+    TEST_ASSERT_EQUAL(ManualState::OFF, automation->getIrrigationSubsystem().getStatus().manualState);
+}
+
+void test_mode_switch_cancels_active_manual_timers(void) {
+    automation->onButtonPressed(ButtonType::IRRIGATION);
+    TEST_ASSERT_TRUE(irrigActuator->isOn());
+
+    automation->setSystemMode(SystemMode::AUTOMATIC);
+    TEST_ASSERT_EQUAL(ManualState::OFF, automation->getIrrigationSubsystem().getStatus().manualState);
+}
+
 int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
@@ -886,6 +908,8 @@ int main(int argc, char **argv) {
     RUN_TEST(test_auto_mode_critical_temp_triggers_alarm_and_forces_actuator_on);
     RUN_TEST(test_pin_assignments_match_hardware_spec);
     RUN_TEST(test_timer_expiration_restores_auto_mode);
+    RUN_TEST(test_manual_mode_soil_flood_forces_actuator_off);
+    RUN_TEST(test_mode_switch_cancels_active_manual_timers);
 
     return UNITY_END();
 }
