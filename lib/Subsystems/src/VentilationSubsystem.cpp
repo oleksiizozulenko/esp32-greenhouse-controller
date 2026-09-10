@@ -17,18 +17,12 @@ SubsystemStatus VentilationSubsystem::getStatus() const {
     };
 }
 
-void VentilationSubsystem::update(SensorData tempData, SensorData humData, SystemHealthState& healthState) {
+void VentilationSubsystem::update(SensorData tempData, SensorData humData, const SystemHealthState& healthState) {
+    (void)healthState;
     bool isCriticalTemp = !tempData.isError && (tempData.value >= config.tempCriticalLimit);
     bool isCriticalHum = !humData.isError && (humData.value >= config.humidityCriticalLimit);
 
-    if (isCriticalTemp || isCriticalHum) {
-        activeAlarm = true;
-        healthState.hasCriticalHazard = true;
-        snprintf(healthState.advisoryMsg, sizeof(healthState.advisoryMsg),
-                 "[ALARM] Ventilation: High %s Hazard!", isCriticalTemp ? "Temp" : "Humidity");
-    } else {
-        activeAlarm = false;
-    }
+    activeAlarm = (isCriticalTemp || isCriticalHum);
 
     if (actuator == nullptr) return;
 

@@ -8,6 +8,7 @@
 #include "IrrigationSubsystem.h"
 #include "SystemAlertService.h"
 #include "SensorsService.h"
+#include "SafetyMonitorService.h"
 
 static GreenhouseController* automation;
 static SystemAlertService alertService;
@@ -775,7 +776,8 @@ void test_manual_mode_critical_temp_triggers_alarm_without_overriding_manual_off
     SensorDataMap readings(1);
     readings[0] = {tempSensor, tempSensor->read()};
 
-    SystemHealthState healthState;
+    SafetyMonitorService safetyMonitor;
+    SystemHealthState healthState = safetyMonitor.evaluate(readings, true);
     automation->update(true, readings, healthState);
 
     // Alarm triggered!
@@ -793,7 +795,8 @@ void test_auto_mode_critical_temp_triggers_alarm_and_forces_actuator_on(void) {
     SensorDataMap readings(1);
     readings[0] = {tempSensor, tempSensor->read()};
 
-    SystemHealthState healthState;
+    SafetyMonitorService safetyMonitor;
+    SystemHealthState healthState = safetyMonitor.evaluate(readings, true);
     automation->update(true, readings, healthState);
 
     // Alarm triggered!

@@ -17,19 +17,12 @@ SubsystemStatus IrrigationSubsystem::getStatus() const {
     };
 }
 
-void IrrigationSubsystem::update(SensorData soilData, SystemHealthState& healthState) {
+void IrrigationSubsystem::update(SensorData soilData, const SystemHealthState& healthState) {
+    (void)healthState;
     bool isCriticalDry = !soilData.isError && (soilData.value <= config.soilCriticalDryLimit);
     bool isOverwatered = !soilData.isError && (soilData.value >= config.soilCriticalHighLimit);
 
-    if (isCriticalDry || isOverwatered) {
-        activeAlarm = true;
-        healthState.hasCriticalHazard = isCriticalDry;
-        healthState.hasOperatorAdvisory = isOverwatered;
-        snprintf(healthState.advisoryMsg, sizeof(healthState.advisoryMsg),
-                 "[ALARM] Irrigation: Soil %s!", isCriticalDry ? "Critically Dry" : "Overwatered");
-    } else {
-        activeAlarm = false;
-    }
+    activeAlarm = (isCriticalDry || isOverwatered);
 
     if (actuator == nullptr) return;
 

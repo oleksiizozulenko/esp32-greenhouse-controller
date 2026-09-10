@@ -20,10 +20,10 @@ public:
     const char* getName() const override { return "Irrigation"; }
 
     // Direct, lightweight typed update
-    void update(SensorData soilData, SystemHealthState& healthState);
+    void update(SensorData soilData, const SystemHealthState& healthState);
 
     // Generic interface adapter
-    void update(const SensorDataMap& readings, SystemHealthState& healthState) override {
+    void update(const SensorDataMap& readings, const SystemHealthState& healthState) override {
         update(readings.get(SensorType::SOIL), healthState);
     }
 

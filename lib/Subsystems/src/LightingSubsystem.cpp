@@ -17,17 +17,11 @@ SubsystemStatus LightingSubsystem::getStatus() const {
     };
 }
 
-void LightingSubsystem::update(SensorData lightData, SystemHealthState& healthState) {
+void LightingSubsystem::update(SensorData lightData, const SystemHealthState& healthState) {
+    (void)healthState;
     bool isCriticalHigh = !lightData.isError && (lightData.value >= config.lightCriticalHigh);
 
-    if (isCriticalHigh) {
-        activeAlarm = true;
-        healthState.hasOperatorAdvisory = true;
-        snprintf(healthState.advisoryMsg, sizeof(healthState.advisoryMsg),
-                 "[ALARM] Lighting: Extreme High Light Level!");
-    } else {
-        activeAlarm = false;
-    }
+    activeAlarm = isCriticalHigh;
 
     if (actuator == nullptr) return;
 

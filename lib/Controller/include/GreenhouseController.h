@@ -82,7 +82,7 @@ public:
 
     void begin();
 
-    void update(bool isAutoMode, const SensorDataMap& readings, SystemHealthState& healthState);
+    void update(bool isAutoMode, const SensorDataMap& readings, const SystemHealthState& healthState);
     void update(bool isAutoMode, const SensorDataMap& readings);
 
     DisplayViewModel buildDisplayViewModel(bool isAutoMode, const SensorDataMap& readings, const SystemHealthState& healthState) const;
