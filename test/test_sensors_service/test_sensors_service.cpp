@@ -34,7 +34,7 @@ void setUp(void) {
 
     sensorsService = new SensorsService(2, 2000);
 
-    tempSensor = new MockSensor(PIN_TEMP, SensorType::TEMPERATURE, "Temperature", "°C");
+    tempSensor = new MockSensor(PIN_DHT, SensorType::TEMPERATURE, "Temperature", "°C");
     soilSensor = new MockSensor(PIN_SOIL_POT, SensorType::SOIL, "Soil", "%");
     lightSensor = new MockSensor(PIN_LDR, SensorType::LIGHT, "Light", "lux");
 
