@@ -195,10 +195,6 @@ void vTaskControl(void* pvParameters) {
                 Serial.printf("[ISR QUEUE EVENT] Actuator ButtonType: %d, ID: %u pressed at %lu ms -> Notifying Controller\n",
                               (int)evt.type, evt.buttonId, evt.timestamp);
                 greenhouseController.onButtonPressed(evt.type);
-
-                if (systemEventGroup != NULL) {
-                    xEventGroupSetBits(systemEventGroup, EVENT_BIT_BUTTON_EVENT);
-                }
             }
         }
 
