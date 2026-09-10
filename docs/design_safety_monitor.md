@@ -54,7 +54,7 @@ $$\text{Lux} = \left(\frac{250593.5}{R_{LDR}}\right)^{\frac{1}{0.7}}$$
 ```cpp
 // Temperature Bounds (°C)
 #define SENSOR_TEMP_MIN_ERROR     -5.0f   // °C (Exclusive lower: < -5.0)
-#define SENSOR_TEMP_MAX_ERROR     60.0f   // °C (Exclusive upper: > 60.0)
+#define SENSOR_TEMP_MAX_ERROR     80.0f   // °C (Exclusive upper: > 80.0)
 
 // Humidity Bounds (%)
 #define SENSOR_HUMIDITY_MIN_ERROR 0.0f    // % (Inclusive valid: 0.0 .. 90.0)
@@ -67,16 +67,17 @@ $$\text{Lux} = \left(\frac{250593.5}{R_{LDR}}\right)^{\frac{1}{0.7}}$$
 // Light Sensor Bounds (Lux)
 #define SENSOR_LIGHT_MIN_ERROR    0.0f        // lx (Inclusive valid)
 #define SENSOR_LIGHT_MAX_ERROR    100000.0f   // lx (Inclusive valid)
-#define LIGHT_DARK_THRESHOLD      500.0f      // lx (Turn ON light if < 500 lx)
-#define LIGHT_HYSTERESIS          50.0f       // lx (Turn OFF light if > 550 lx)
-#define CRITICAL_LIGHT_HIGH       10000.0f    // lx (Full daylight / High Light)
+#define LIGHT_LOW_THRESHOLD       300.0f      // lx (Turn ON light if < 300 lx)
+#define LIGHT_HIGH_THRESHOLD      1000.0f     // lx (Turn OFF light if > 1000 lx)
+#define CRITICAL_LIGHT_HIGH       25000.0f    // lx (Full daylight / High Light)
 
 // Physical Hazard Limits
 #define CRITICAL_TEMP_HIGH        45.0f   // °C (Overheat)
 #define CRITICAL_TEMP_LOW         5.0f    // °C (Frost)
 #define CRITICAL_HUMIDITY_HIGH    85.0f   // % (High Humidity)
 #define CRITICAL_SOIL_HIGH        85.0f   // % (Soil Flood)
-#define CRITICAL_SOIL_LOW         30.0f   // % (Dry Soil)
+#define CRITICAL_SOIL_LOW         30.0f   // % (Dry Soil Advisory)
+#define CRITICAL_SOIL_DRY         20.0f   // % (Critical Dry Soil Hazard)
 ```
 
 ---
@@ -88,9 +89,9 @@ $$\text{Lux} = \left(\frac{250593.5}{R_{LDR}}\right)^{\frac{1}{0.7}}$$
 struct SystemHealthState {
     bool hasHardwareError;     // True if any present sensor is NaN/inf/out-of-bounds
     bool hasCriticalHazard;    // True if Overheat (>45°C), Frost (<5°C), or Soil Flood (>85%)
-    bool hasOperatorAdvisory;  // True if Dry Soil (<30%), High Humidity (>85%), or High Light (>10000lx)
+    bool hasOperatorAdvisory;  // True if Dry Soil (<30%), High Humidity (>85%), or High Light (>25000lx)
     bool requiresAlarm;        // True if Buzzer 1kHz alarm tone should sound
-    char advisoryMsg[24];      // Prioritized prompt banner for MANUAL mode (max 23 chars + null)
+    char advisoryMsg[64];      // Prioritized prompt banner for MANUAL mode (clamped to 24 on DisplayViewModel)
 };
 ```
 
@@ -102,9 +103,9 @@ struct SystemHealthState {
 | 2 | Temp > 45°C | `false` | `true` | `false` | `true` | `"TEMP HIGH! Press VENT"` |
 | 3 | Temp < 5°C | `false` | `true` | `false` | `true` | `"FROST RISK! Temp Low"` |
 | 4 | Soil > 85% | `false` | `true` | `false` | `true` | `"SOIL FLOOD! Stop Water"` |
-| 5 | Humidity > 85% | `false` | `false` | `true` | `true` (Alarm active) | `"HUMID HIGH! Press VENT"` |
+| 5 | Humidity > 85% | `false` | `false` | `true` | `false` | `"HUMID HIGH! Press VENT"` |
 | 6 | Soil < 30% | `false` | `false` | `true` | `isAutoMode` | `"SOIL DRY! Press IRRIG"` |
-| 7 | Light > 10000 lx | `false` | `false` | `true` | `false` | `"LIGHT HIGH! Press LIGHT"` |
+| 7 | Light > 25000 lx | `false` | `false` | `true` | `false` | `"LIGHT HIGH! Press LIGHT"` |
 | 8 (Lowest) | Normal | `false` | `false` | `false` | `false` | `""` |
 
 ---
