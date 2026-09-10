@@ -3,6 +3,9 @@
 void GreenhouseController::vActuatorTimerCallback(TimerHandle_t xTimer) {
     TimerContext* ctx = (TimerContext*)pvTimerGetTimerID(xTimer);
     if (ctx != nullptr && ctx->controller != nullptr) {
+        if (ctx->controller->getSystemMode() != SystemMode::AUTOMATIC) {
+            return;
+        }
         IControlSubsystem* sub = ctx->controller->getSubsystem(
             ctx->actuatorType == ActuatorType::VENTILATION ? SubsystemType::VENTILATION :
             ctx->actuatorType == ActuatorType::LIGHT ? SubsystemType::LIGHTING :
@@ -12,9 +15,7 @@ void GreenhouseController::vActuatorTimerCallback(TimerHandle_t xTimer) {
         if (sub != nullptr) {
             Serial.printf("[SAFETY TIMER] %s Timer Expired -> Turning Manual State OFF\n", sub->getName());
             sub->setManualState(ManualState::OFF);
-            if (ctx->controller->getSystemMode() == SystemMode::AUTOMATIC) {
-                sub->setMode(ControlMode::AUTO);
-            }
+            sub->setMode(ControlMode::AUTO);
             if (act != nullptr && act->isOperating()) {
                 act->turnOff();
             }
@@ -116,13 +117,13 @@ void GreenhouseController::setSystemMode(SystemMode mode) {
     ventilationSubsystem.setMode(targetMode);
     lightingSubsystem.setMode(targetMode);
     irrigationSubsystem.setMode(targetMode);
+    stopTimerFor(ActuatorType::VENTILATION);
+    stopTimerFor(ActuatorType::LIGHT);
+    stopTimerFor(ActuatorType::IRRIGATION);
     if (mode == SystemMode::AUTOMATIC) {
         ventilationSubsystem.setManualState(ManualState::OFF);
         lightingSubsystem.setManualState(ManualState::OFF);
         irrigationSubsystem.setManualState(ManualState::OFF);
-        stopTimerFor(ActuatorType::VENTILATION);
-        stopTimerFor(ActuatorType::LIGHT);
-        stopTimerFor(ActuatorType::IRRIGATION);
     }
 }
 
@@ -201,9 +202,6 @@ void GreenhouseController::onButtonPressed(ButtonType button) {
         if (act != nullptr) {
             act->turnOff();
         }
-        if (globalSystemMode == SystemMode::AUTOMATIC) {
-            sub->setMode(ControlMode::AUTO);
-        }
         stopTimerFor(targetType);
     } else {
         Serial.printf("[MANUAL EVENT] Button Pressed -> Toggling %s Subsystem to ON\n", sub->getName());
@@ -212,7 +210,9 @@ void GreenhouseController::onButtonPressed(ButtonType button) {
         if (act != nullptr) {
             act->turnOn();
         }
-        startTimerFor(targetType, getActuatorTimeout(targetType));
+        if (globalSystemMode == SystemMode::AUTOMATIC) {
+            startTimerFor(targetType, getActuatorTimeout(targetType));
+        }
     }
 }
 
