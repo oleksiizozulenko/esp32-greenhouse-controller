@@ -247,6 +247,16 @@ void GreenhouseController::update(bool isAutoMode, const SensorDataMap& readings
         irrigationSubsystem.setMode(ControlMode::MANUAL);
     }
 
+    if (!readings.has(SensorType::TEMPERATURE) && !readings.has(SensorType::HUMIDITY)) {
+        ventilationSubsystem.setMode(ControlMode::MANUAL);
+    }
+    if (!readings.has(SensorType::LIGHT)) {
+        lightingSubsystem.setMode(ControlMode::MANUAL);
+    }
+    if (!readings.has(SensorType::SOIL)) {
+        irrigationSubsystem.setMode(ControlMode::MANUAL);
+    }
+
     SensorData temp = readings.get(SensorType::TEMPERATURE);
     SensorData hum = readings.get(SensorType::HUMIDITY);
     SensorData light = readings.get(SensorType::LIGHT);

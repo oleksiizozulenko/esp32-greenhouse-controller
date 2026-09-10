@@ -67,6 +67,15 @@ SensorData SensorDataMap::get(SensorType type) const {
     return {0.0f, true};
 }
 
+bool SensorDataMap::has(SensorType type) const {
+    for (size_t i = 0; i < entryCount; ++i) {
+        if (entries[i].sensor != nullptr && entries[i].sensor->getType() == type) {
+            return true;
+        }
+    }
+    return false;
+}
+
 // SensorsService methods
 SensorsService::SensorsService(unsigned long readInterval)
     : sensors{}, sensorCount(0), lastReadTime(0), readInterval(readInterval) {}

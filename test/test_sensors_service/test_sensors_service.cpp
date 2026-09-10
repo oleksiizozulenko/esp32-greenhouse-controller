@@ -157,6 +157,14 @@ void test_sensor_data_map_move_semantics(void) {
     TEST_ASSERT_EQUAL_UINT(0, original.size()); // original was moved
 }
 
+void test_sensor_data_map_has(void) {
+    SensorDataMap readings = sensorsService->readAll();
+    TEST_ASSERT_TRUE(readings.has(SensorType::TEMPERATURE));
+    TEST_ASSERT_TRUE(readings.has(SensorType::SOIL));
+    TEST_ASSERT_TRUE(readings.has(SensorType::LIGHT));
+    TEST_ASSERT_FALSE(readings.has(SensorType::HUMIDITY));
+}
+
 int main(int argc, char **argv) {
     (void)argc;
     (void)argv;
@@ -169,6 +177,7 @@ int main(int argc, char **argv) {
     RUN_TEST(test_sensor_data_map_lookup_by_pointer);
     RUN_TEST(test_sensor_reads_do_not_allocate_during_loop_path);
     RUN_TEST(test_sensor_data_map_non_existent_key);
+    RUN_TEST(test_sensor_data_map_has);
 
     RUN_TEST(test_sensor_data_map_copy_constructor);
     RUN_TEST(test_sensor_data_map_copy_assignment);
