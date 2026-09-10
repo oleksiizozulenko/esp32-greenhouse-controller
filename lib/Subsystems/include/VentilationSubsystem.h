@@ -20,10 +20,10 @@ public:
     const char* getName() const override { return "Ventilation"; }
 
     // Direct, lightweight typed update
-    void update(SensorData tempData, SensorData humData, SystemHealthState& healthState);
+    void update(SensorData tempData, SensorData humData, const SystemHealthState& healthState);
 
     // Generic interface adapter
-    void update(const SensorDataMap& readings, SystemHealthState& healthState) override {
+    void update(const SensorDataMap& readings, const SystemHealthState& healthState) override {
         update(readings.get(SensorType::TEMPERATURE), readings.get(SensorType::HUMIDITY), healthState);
     }
 

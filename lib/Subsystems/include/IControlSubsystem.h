@@ -12,7 +12,7 @@ public:
     virtual SubsystemType getType() const = 0;
     virtual const char* getName() const = 0;
 
-    virtual void update(const SensorDataMap& readings, SystemHealthState& healthState) = 0;
+    virtual void update(const SensorDataMap& readings, const SystemHealthState& healthState) = 0;
 
     virtual ControlMode getMode() const = 0;
     virtual void setMode(ControlMode mode) = 0;

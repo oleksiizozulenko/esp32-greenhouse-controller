@@ -237,7 +237,7 @@ void GreenhouseController::begin() {
     }
 }
 
-void GreenhouseController::update(bool isAutoMode, const SensorDataMap& readings, SystemHealthState& healthState) {
+void GreenhouseController::update(bool isAutoMode, const SensorDataMap& readings, const SystemHealthState& healthState) {
     SystemMode targetMode = isAutoMode ? SystemMode::AUTOMATIC : SystemMode::MANUAL;
     if (targetMode != globalSystemMode) {
         setSystemMode(targetMode);
