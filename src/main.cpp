@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <esp_task_wdt.h>
 #include "rtos_tasks.h"
+#include "Logging.h"
 
 #include "ServoVentilationActuator.h"
 #include "DotMatrix8x8IrrigationActuator.h"
@@ -105,6 +106,13 @@ void setup() {
 
   displayManager.init();
 
+  esp_log_level_set("*", ESP_LOG_INFO);
+  esp_log_level_set("CONTROLLER", ESP_LOG_INFO);
+  esp_log_level_set("SAFETY", ESP_LOG_INFO);
+  esp_log_level_set("SENSORS", ESP_LOG_INFO);
+  esp_log_level_set("CONTROL", ESP_LOG_INFO);
+  esp_log_level_set("DIAG", ESP_LOG_DEBUG);
+
   Serial.println("Greenhouse Hardware Ready. Spawning FreeRTOS Tasks...");
   startRtosTasks();
   Serial.println("FreeRTOS Tasks & Hardware ISRs Active.");
@@ -112,8 +120,7 @@ void setup() {
 
 extern "C" void vApplicationStackOverflowHook(TaskHandle_t xTask, char* pcTaskName) {
   (void)xTask;
-  Serial.printf("\n[STACK OVERFLOW] CRITICAL ALARM: Task '%s' overflowed its stack!\n", pcTaskName ? pcTaskName : "Unknown");
-  Serial.println("[STACK OVERFLOW] Emergency rebooting ESP32 in 1000ms...\n");
+  ESP_LOGE("CRITICAL", "[STACK OVERFLOW] Task '%s' overflowed its stack!", pcTaskName ? pcTaskName : "Unknown");
   delay(1000);
   ESP.restart();
 }

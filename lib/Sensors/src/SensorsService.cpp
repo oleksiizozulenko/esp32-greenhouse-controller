@@ -1,4 +1,7 @@
 #include "SensorsService.h"
+#include "Logging.h"
+
+static const char* TAG = "SENSORS";
 
 // SensorDataMap methods
 SensorDataMap::SensorDataMap() : entryCount(0) {
@@ -145,9 +148,9 @@ void SensorsService::checkAndUpdate() {
         if (sensors[i] == nullptr) continue;
         SensorData data = sensors[i]->readProcessed();
         if (data.isError) {
-            Serial.printf("Error reading sensor %s\n", sensors[i]->getName());
+            ESP_LOGE(TAG, "Error reading sensor %s", sensors[i]->getName());
         } else {
-            Serial.printf("Sensor %s value: %.2f\n", sensors[i]->getName(), data.value);
+            ESP_LOGD(TAG, "Sensor %s value: %.2f", sensors[i]->getName(), data.value);
         }
     }
 }

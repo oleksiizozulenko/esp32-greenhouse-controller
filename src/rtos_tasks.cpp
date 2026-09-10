@@ -2,7 +2,12 @@
 
 #include "rtos_tasks.h"
 #include "SystemAlertService.h"
+#include "Logging.h"
 #include <esp_task_wdt.h>
+
+static const char* TAG_CTRL = "CONTROL";
+static const char* TAG_SENS = "SENSORS";
+static const char* TAG_DIAG = "DIAG";
 
 static SystemAlertService systemAlertService;
 
@@ -46,31 +51,29 @@ void printTaskStackDiagnostics() {
     static unsigned long lastDiag = 0;
     if (millis() - lastDiag > 10000) {
         lastDiag = millis();
-        Serial.println("\n========== FreeRTOS Task Memory Diagnostics ==========");
         if (hTaskSensors) {
             UBaseType_t hwmSensors = uxTaskGetStackHighWaterMark(hTaskSensors);
-            Serial.printf(" [TaskSensors] Free Stack: %u words (%u bytes)\n",
-                          (unsigned int)hwmSensors, (unsigned int)(hwmSensors * sizeof(StackType_t)));
+            ESP_LOGD(TAG_DIAG, " [TaskSensors] Free Stack: %u words (%u bytes)",
+                     (unsigned int)hwmSensors, (unsigned int)(hwmSensors * sizeof(StackType_t)));
         }
         if (hTaskControl) {
             UBaseType_t hwmControl = uxTaskGetStackHighWaterMark(hTaskControl);
-            Serial.printf(" [TaskControl] Free Stack: %u words (%u bytes)\n",
-                          (unsigned int)hwmControl, (unsigned int)(hwmControl * sizeof(StackType_t)));
+            ESP_LOGD(TAG_DIAG, " [TaskControl] Free Stack: %u words (%u bytes)",
+                     (unsigned int)hwmControl, (unsigned int)(hwmControl * sizeof(StackType_t)));
         }
         if (hTaskDisplay) {
             UBaseType_t hwmDisplay = uxTaskGetStackHighWaterMark(hTaskDisplay);
-            Serial.printf(" [TaskDisplay] Free Stack: %u words (%u bytes)\n",
-                          (unsigned int)hwmDisplay, (unsigned int)(hwmDisplay * sizeof(StackType_t)));
+            ESP_LOGD(TAG_DIAG, " [TaskDisplay] Free Stack: %u words (%u bytes)",
+                     (unsigned int)hwmDisplay, (unsigned int)(hwmDisplay * sizeof(StackType_t)));
         }
-        Serial.printf(" [System] Total Heap Free: %u bytes\n", (unsigned int)ESP.getFreeHeap());
-        Serial.println("======================================================\n");
+        ESP_LOGD(TAG_DIAG, " [System] Total Heap Free: %u bytes", (unsigned int)ESP.getFreeHeap());
     }
 }
 
 void handleManualMode() {
     static unsigned long lastLog = 0;
     if (millis() - lastLog > 5000) {
-        Serial.println("[MODE] Manual Mode Active");
+        ESP_LOGI(TAG_CTRL, "Manual Mode Active");
         lastLog = millis();
     }
 }
@@ -78,14 +81,14 @@ void handleManualMode() {
 void handleAutomaticMode(const SensorDataMap& readings) {
     static unsigned long lastLog = 0;
     if (millis() - lastLog > 5000) {
-        Serial.println("[MODE] Automatic Mode Active");
+        ESP_LOGI(TAG_CTRL, "Automatic Mode Active");
         for (size_t i = 0; i < readings.size(); ++i) {
             Sensor* sensor = readings[i].sensor;
             SensorData data = readings[i].data;
             if (data.isError) {
-                Serial.printf("Sensor Error: %s\n", sensor ? sensor->getName() : "Unknown");
+                ESP_LOGW(TAG_SENS, "Sensor Error: %s", sensor ? sensor->getName() : "Unknown");
             } else {
-                Serial.printf("Sensor %s: %.2f\n", sensor ? sensor->getName() : "Unknown", data.value);
+                ESP_LOGD(TAG_SENS, "Sensor %s: %.2f", sensor ? sensor->getName() : "Unknown", data.value);
             }
         }
         lastLog = millis();
@@ -121,16 +124,14 @@ void vTaskSensors(void* pvParameters) {
 
         SensorDataMap readings = sensorsService.read();
 
-        // Diagnostic Printout for Hardware Debugging
-        Serial.println("\n[SENSORS DIAGNOSTIC READOUT]");
         for (size_t i = 0; i < readings.size(); ++i) {
             Sensor* s = readings[i].sensor;
             SensorData d = readings[i].data;
             if (s != nullptr) {
                 if (d.isError) {
-                    Serial.printf("  -> %s (Pin %d): [ERROR / NAN]\n", s->getName(), s->getPin());
+                    ESP_LOGW(TAG_SENS, "  -> %s (Pin %d): [ERROR / NAN]", s->getName(), s->getPin());
                 } else {
-                    Serial.printf("  -> %s (Pin %d): %.2f %s [OK]\n", s->getName(), s->getPin(), d.value, s->getUnit());
+                    ESP_LOGD(TAG_SENS, "  -> %s (Pin %d): %.2f %s [OK]", s->getName(), s->getPin(), d.value, s->getUnit());
                 }
             }
         }
@@ -170,10 +171,10 @@ void vTaskControl(void* pvParameters) {
             );
 
             if (bits & EVENT_BIT_SENSOR_READY) {
-                Serial.println("[LOCK-FREE STREAM] vTaskControl woken INSTANTLY by fresh sensor data!");
+                ESP_LOGD(TAG_CTRL, "vTaskControl woken by sensor data");
             }
             if (bits & EVENT_BIT_BUTTON_EVENT) {
-                Serial.println("[LOCK-FREE STREAM] vTaskControl woken INSTANTLY by button press!");
+                ESP_LOGD(TAG_CTRL, "vTaskControl woken by button press");
             }
         }
 
@@ -183,8 +184,8 @@ void vTaskControl(void* pvParameters) {
                 if (xSemaphoreTake(modeMutex, portMAX_DELAY) == pdTRUE) {
                     SystemMode newMode = toggleSystemMode(greenhouseController.getSystemMode());
                     greenhouseController.setSystemMode(newMode);
-                    Serial.printf("[ISR QUEUE EVENT] Mode button (ID %u) pressed at %lu ms -> Mode toggled to: %s\n",
-                                  evt.buttonId, evt.timestamp, newMode == SystemMode::AUTOMATIC ? "AUTOMATIC" : "MANUAL");
+                    ESP_LOGI(TAG_CTRL, "[MODE] Button (ID %u) pressed -> Mode toggled to: %s",
+                             evt.buttonId, newMode == SystemMode::AUTOMATIC ? "AUTOMATIC" : "MANUAL");
                     xSemaphoreGive(modeMutex);
 
                     if (systemEventGroup != NULL) {
@@ -192,8 +193,8 @@ void vTaskControl(void* pvParameters) {
                     }
                 }
             } else {
-                Serial.printf("[ISR QUEUE EVENT] Actuator ButtonType: %d, ID: %u pressed at %lu ms -> Notifying Controller\n",
-                              (int)evt.type, evt.buttonId, evt.timestamp);
+                ESP_LOGI(TAG_CTRL, "[BUTTON] Actuator ButtonType: %d, ID: %u -> Notifying Controller",
+                         (int)evt.type, evt.buttonId);
                 greenhouseController.onButtonPressed(evt.type);
             }
         }

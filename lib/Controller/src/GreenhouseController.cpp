@@ -1,4 +1,7 @@
 #include "GreenhouseController.h"
+#include "Logging.h"
+
+static const char* TAG = "CONTROLLER";
 
 void GreenhouseController::vActuatorTimerCallback(TimerHandle_t xTimer) {
     TimerContext* ctx = (TimerContext*)pvTimerGetTimerID(xTimer);
@@ -13,7 +16,7 @@ void GreenhouseController::vActuatorTimerCallback(TimerHandle_t xTimer) {
         );
         IActuator* act = ctx->controller->getActuator(ctx->actuatorType);
         if (sub != nullptr) {
-            Serial.printf("[SAFETY TIMER] %s Timer Expired -> Turning Manual State OFF\n", sub->getName());
+            ESP_LOGI(TAG, "[SAFETY TIMER] %s Timer Expired -> Turning Manual State OFF", sub->getName());
             sub->setManualState(ManualState::OFF);
             sub->setMode(ControlMode::AUTO);
             if (act != nullptr && act->isOperating()) {
@@ -182,7 +185,7 @@ void GreenhouseController::stopTimerFor(ActuatorType type) {
 void GreenhouseController::onButtonPressed(ButtonType button) {
     IControlSubsystem* sub = getSubsystemForButton(button);
     if (sub == nullptr) {
-        Serial.printf("[MANUAL EVENT] Button %d Pressed -> No Subsystem registered!\n", (int)button);
+        ESP_LOGW(TAG, "[MANUAL EVENT] Button %d Pressed -> No Subsystem registered!", (int)button);
         return;
     }
 
@@ -196,7 +199,7 @@ void GreenhouseController::onButtonPressed(ButtonType button) {
                            (sub->getMode() == ControlMode::MANUAL && sub->getManualState() == ManualState::ON);
 
     if (currentlyActive) {
-        Serial.printf("[MANUAL EVENT] Button Pressed -> Toggling %s Subsystem to OFF\n", sub->getName());
+        ESP_LOGI(TAG, "[MANUAL EVENT] Button Pressed -> Toggling %s Subsystem to OFF", sub->getName());
         sub->setMode(ControlMode::MANUAL);
         sub->setManualState(ManualState::OFF);
         if (act != nullptr) {
@@ -204,7 +207,7 @@ void GreenhouseController::onButtonPressed(ButtonType button) {
         }
         stopTimerFor(targetType);
     } else {
-        Serial.printf("[MANUAL EVENT] Button Pressed -> Toggling %s Subsystem to ON\n", sub->getName());
+        ESP_LOGI(TAG, "[MANUAL EVENT] Button Pressed -> Toggling %s Subsystem to ON", sub->getName());
         sub->setMode(ControlMode::MANUAL);
         sub->setManualState(ManualState::ON);
         if (act != nullptr) {
