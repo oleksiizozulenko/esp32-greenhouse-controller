@@ -33,7 +33,7 @@ void setUp(void) {
     automation->addActuator(irrigActuator);
     automation->addActuator(lightActuator);
 
-    tempSensor = new MockSensor(PIN_TEMP, SensorType::TEMPERATURE, "Temperature", "°C");
+    tempSensor = new MockSensor(PIN_DHT, SensorType::TEMPERATURE, "Temperature", "°C");
     soilSensor = new MockSensor(PIN_SOIL_POT, SensorType::SOIL, "Soil", "%");
     lightSensor = new MockSensor(PIN_LDR, SensorType::LIGHT, "Light", "lux");
 
@@ -214,8 +214,8 @@ void test_auto_irrigation_high_moisture_80_does_not_turn_on(void) {
 void test_auto_irrigation_hysteresis_holds_on(void) {
     irrigActuator->turnOn();
 
-    // Moisture rises to 33% (in hysteresis zone 30% - 35%)
-    soilSensor->setData(33.0f, false);
+    // Moisture rises to 42% (in hysteresis zone 40% - 45%)
+    soilSensor->setData(42.0f, false);
     SensorDataMap readings(1);
     readings[0] = {soilSensor, soilSensor->read()};
 
@@ -227,8 +227,8 @@ void test_auto_irrigation_hysteresis_holds_on(void) {
 void test_auto_irrigation_sufficient_moisture_turns_off(void) {
     irrigActuator->turnOn();
 
-    // Moisture exceeds 35% (30 + 5)
-    soilSensor->setData(36.0f, false);
+    // Moisture exceeds 45% (40 + 5)
+    soilSensor->setData(46.0f, false);
     SensorDataMap readings(1);
     readings[0] = {soilSensor, soilSensor->read()};
 

@@ -22,7 +22,6 @@ inline SystemMode toggleSystemMode(SystemMode currentMode) {
 // Sensors
 #define PIN_DHT           23
 #define DHT_TYPE          DHT11
-#define PIN_TEMP          PIN_DHT
 #define PIN_LDR           35 // light sensor (LDR)
 #define PIN_SOIL_POT      34
 
@@ -33,25 +32,12 @@ inline SystemMode toggleSystemMode(SystemMode currentMode) {
 #define PIN_BTN_LIGHT     26
 
 // Actuators & Indicators
-//#define PIN_OLED_SDA        21 // not in use, but defined for completeness
-//#define PIN_OLED_SCL        22 // not in use, but defined for completeness
-
-#define PIN_MATRIX_DISPLAY_1 33 // this is our irrigation display (8x8 dot matrix)
-
-#define PIN_LED_YELLOW      25  // actuator for light
-
 #define PIN_BUZZER          18
-//#define PIN_LED_STRIP       17  //@deprecated Light actuator (LED Strip)
-//#define PIN_LED_RING        16  // @deprecated Irrigation actuator (LED Ring)
 #define PIN_LED_RED         4   // System error indicator LED
 #define PIN_LED_GREEN       15  // All systems normal indicator LED
-#define PIN_ACTUATOR_VENT   13   // Ventilation actuator (Servo)
-
-#define PIN_ACTUATOR_IRRIG  PIN_MATRIX_DISPLAY_1
-#define PIN_ACTUATOR_LIGHT  PIN_LED_YELLOW
-
-#define NUM_PIXELS_RING     16  // @deprecated Number of NeoPixels on irrigation ring
-#define NUM_PIXELS_STRIP    20  // @deprecated Number of NeoPixels on light strip
+#define PIN_ACTUATOR_VENT   13  // Ventilation actuator (Servo)
+#define PIN_ACTUATOR_IRRIG  33  // Irrigation actuator (8x8 dot matrix)
+#define PIN_ACTUATOR_LIGHT  25  // Light actuator (Yellow LED)
 
 #define SERVO_OPEN_ANGLE    90  // Ventilation servo open angle
 #define SERVO_CLOSE_ANGLE   0   // Ventilation servo close angle
@@ -71,14 +57,12 @@ inline SystemMode toggleSystemMode(SystemMode currentMode) {
 #define HUMIDITY_HYSTERESIS     5.0f  // Hysteresis (%) -> turns off at (70.0 - 5.0 = 65.0%)
 
 // Soil Moisture (Irrigation)
-#define SOIL_DRY_THRESHOLD    30    // Soil moisture below 30% -> turn on irrigation
-#define SOIL_HYSTERESIS       5     // Hysteresis (%) -> turn off at 35%
+#define SOIL_DRY_THRESHOLD    40    // Soil moisture below 40% -> turn on irrigation
+#define SOIL_HYSTERESIS       5     // Hysteresis (%) -> turn off at 45%
 
 // Light Intensity (Lux)
 #define LIGHT_LOW_THRESHOLD   300.0f   // Low light level threshold (lx) -> turn on light below 300 lx
-#define LIGHT_HIGH_THRESHOLD  1000.0f  // High light level threshold (lx) -> turn off light above 1000 lx (good lighting)
-#define LIGHT_DARK_THRESHOLD  LIGHT_LOW_THRESHOLD
-#define LIGHT_HYSTERESIS      (LIGHT_HIGH_THRESHOLD - LIGHT_LOW_THRESHOLD)
+#define LIGHT_HIGH_THRESHOLD  1000.0f  // High light level threshold (lx) -> turn off light above 1000 lx
 
 // Sensor Error Thresholds
 #define SENSOR_TEMP_MIN_ERROR     -5.0f      // Temperature < -5°C -> Sensor Error
@@ -96,8 +80,8 @@ inline SystemMode toggleSystemMode(SystemMode currentMode) {
 #define CRITICAL_TEMP_LOW         5.0f       // Freezing temperature (<5°C)
 #define CRITICAL_HUMIDITY_HIGH    85.0f      // Critical high humidity (>85%)
 #define CRITICAL_SOIL_HIGH        85.0f      // Overwatering (>85%)
-#define CRITICAL_SOIL_LOW         30.0f      // Dry soil (<30%)
-#define CRITICAL_SOIL_DRY         CRITICAL_SOIL_LOW
+#define CRITICAL_SOIL_LOW         30.0f      // Dry soil advisory (<30%)
+#define CRITICAL_SOIL_DRY         20.0f      // Critical dry soil hazard (<20%)
 
 // Operator Advisories
 #define ADV_HUMIDITY_HIGH         75.0f
@@ -107,10 +91,9 @@ inline SystemMode toggleSystemMode(SystemMode currentMode) {
 // 3. SYSTEM TIMINGS
 // ==========================================
 
-#define SENSOR_READ_INTERVAL  2000  // Sensor polling interval (ms)
-#define OLED_REFRESH_INTERVAL 500   // Display refresh interval (ms)
-#define DEBOUNCE_DELAY        50    // Button debounce delay (ms)
-#define BUTTON_DEBOUNCE_DELAY_MS DEBOUNCE_DELAY
+#define SENSOR_READ_INTERVAL     2000  // Sensor polling interval (ms)
+#define OLED_REFRESH_INTERVAL    500   // Display refresh interval (ms)
+#define BUTTON_DEBOUNCE_DELAY_MS 50    // Button debounce delay (ms)
 
 // Actuator Safety Auto-Off Timings (ms)
 #define IRRIGATION_TIMEOUT_MS  10000 // 10s auto-shutoff

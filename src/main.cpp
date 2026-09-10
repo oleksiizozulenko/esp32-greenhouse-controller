@@ -12,7 +12,7 @@
 DHT dht(PIN_DHT, DHT_TYPE);
 HumiditySensor humiditySensor(PIN_DHT, &dht);
 SoilSensor soilSensor(PIN_SOIL_POT);
-TemperatureSensor temperatureSensor(PIN_TEMP, &dht);
+TemperatureSensor temperatureSensor(PIN_DHT, &dht);
 LightSensor lightSensor(PIN_LDR);
 
 ServoVentilationActuator ventActuator(PIN_ACTUATOR_VENT);
