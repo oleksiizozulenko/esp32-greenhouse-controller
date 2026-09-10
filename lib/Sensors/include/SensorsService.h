@@ -34,6 +34,7 @@ public:
 
     SensorData get(const Sensor* sensor) const;
     SensorData get(SensorType type) const;
+    bool has(SensorType type) const;
 
     SensorDataEntry* begin() { return entries; }
     SensorDataEntry* end() { return entries + entryCount; }
