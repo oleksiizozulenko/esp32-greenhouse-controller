@@ -8,6 +8,7 @@
 static const char* TAG_CTRL = "CONTROL";
 static const char* TAG_SENS = "SENSORS";
 static const char* TAG_DIAG = "DIAG";
+static const char* TAG_ACT = "ACTUATORS";
 
 static SystemAlertService systemAlertService;
 
@@ -222,6 +223,38 @@ void vTaskControl(void* pvParameters) {
 
         greenhouseController.update(isAutoMode, lastReadings, healthState);
         systemAlertService.update(healthState);
+
+        bool forceLogActuators = (bits & (EVENT_BIT_SENSOR_READY | EVENT_BIT_BUTTON_EVENT)) != 0;
+        static bool lastActuatorState[GreenhouseController::MAX_ACTUATORS] = {false};
+        static bool actuatorStateInit = false;
+
+        bool actuatorStateChanged = false;
+        size_t actCount = greenhouseController.getActuatorCount();
+        for (size_t i = 0; i < actCount && i < GreenhouseController::MAX_ACTUATORS; ++i) {
+            IActuator* act = greenhouseController.getActuator(i);
+            if (act != nullptr) {
+                bool op = act->isOperating();
+                if (!actuatorStateInit || op != lastActuatorState[i]) {
+                    actuatorStateChanged = true;
+                    lastActuatorState[i] = op;
+                }
+            }
+        }
+        actuatorStateInit = true;
+
+        if (forceLogActuators || actuatorStateChanged) {
+            for (size_t i = 0; i < actCount; ++i) {
+                IActuator* act = greenhouseController.getActuator(i);
+                if (act != nullptr) {
+                    ESP_LOGD(TAG_ACT, "  -> %s (Pin %d): %s [%s]",
+                             act->getName(),
+                             act->getPin(),
+                             act->getStatusText(),
+                             act->isOperating() ? "ENABLED" : "DISABLED");
+                }
+            }
+        }
+
         printTaskStackDiagnostics();
     }
 }

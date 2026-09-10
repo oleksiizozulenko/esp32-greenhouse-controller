@@ -109,7 +109,8 @@ void setup() {
   esp_log_level_set("*", ESP_LOG_INFO);
   esp_log_level_set("CONTROLLER", ESP_LOG_INFO);
   esp_log_level_set("SAFETY", ESP_LOG_INFO);
-  esp_log_level_set("SENSORS", ESP_LOG_INFO);
+  esp_log_level_set("SENSORS", ESP_LOG_DEBUG);
+  esp_log_level_set("ACTUATORS", ESP_LOG_DEBUG);
   esp_log_level_set("CONTROL", ESP_LOG_INFO);
   esp_log_level_set("DIAG", ESP_LOG_DEBUG);
 
