@@ -15,7 +15,6 @@ SemaphoreHandle_t healthStateMutex = NULL;
 EventGroupHandle_t systemEventGroup = NULL;
 
 // System Mode & State Variables
-SystemMode currentMode = SystemMode::AUTOMATIC;
 SystemHealthState globalHealthState;
 
 // Task Handles for Memory Profiling
@@ -182,9 +181,10 @@ void vTaskControl(void* pvParameters) {
         while (xQueueReceive(buttonEventQueue, &evt, 0) == pdTRUE) {
             if (evt.type == ButtonType::MODE) {
                 if (xSemaphoreTake(modeMutex, portMAX_DELAY) == pdTRUE) {
-                    currentMode = toggleSystemMode(currentMode);
+                    SystemMode newMode = toggleSystemMode(greenhouseController.getSystemMode());
+                    greenhouseController.setSystemMode(newMode);
                     Serial.printf("[ISR QUEUE EVENT] Mode button (ID %u) pressed at %lu ms -> Mode toggled to: %s\n",
-                                  evt.buttonId, evt.timestamp, currentMode == SystemMode::AUTOMATIC ? "AUTOMATIC" : "MANUAL");
+                                  evt.buttonId, evt.timestamp, newMode == SystemMode::AUTOMATIC ? "AUTOMATIC" : "MANUAL");
                     xSemaphoreGive(modeMutex);
 
                     if (systemEventGroup != NULL) {
@@ -207,9 +207,9 @@ void vTaskControl(void* pvParameters) {
             lastReadings = newReadings;
         }
 
-        SystemMode mode = SystemMode::MANUAL;
+        SystemMode mode = SystemMode::AUTOMATIC;
         if (xSemaphoreTake(modeMutex, portMAX_DELAY) == pdTRUE) {
-            mode = currentMode;
+            mode = greenhouseController.getSystemMode();
             xSemaphoreGive(modeMutex);
         }
         bool isAutoMode = (mode == SystemMode::AUTOMATIC);
@@ -256,9 +256,9 @@ void vTaskDisplay(void* pvParameters) {
             lastDisplayReadings = newDisplayReadings;
         }
 
-        SystemMode mode = SystemMode::MANUAL;
+        SystemMode mode = SystemMode::AUTOMATIC;
         if (xSemaphoreTake(modeMutex, portMAX_DELAY) == pdTRUE) {
-            mode = currentMode;
+            mode = greenhouseController.getSystemMode();
             xSemaphoreGive(modeMutex);
         }
         bool isAutoMode = (mode == SystemMode::AUTOMATIC);
