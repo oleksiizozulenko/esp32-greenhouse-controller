@@ -1,7 +1,7 @@
 # Actuators & Overrides Specification
 
 ## Purpose
-Specifies physical hardware pin assignments, actuator driver behavior (ventilation servo, irrigation relay, light strip relay), status indicators (`LED_GREEN`, `LED_RED`), and debounced push-button manual overrides.
+Specifies physical hardware pin assignments, actuator driver behavior (ventilation servo, 8x8 matrix irrigation, yellow LED light), status indicators (`LED_GREEN`, `LED_RED`, `BUZZER`), and debounced push-button manual overrides across system operating modes.
 
 ---
 
@@ -15,70 +15,84 @@ The system hardware interfaces SHALL conform to the pin configuration defined in
 - **WHEN** firmware pin constants are initialized
 - **THEN** digital, analog, I2C, and PWM pins SHALL be assigned according to the pinout map:
 
-| Component / Function | Config Constant | GPIO Pin | Interface Type |
+| Component / Function | Config Constant | GPIO Pin | Interface Type / Logic |
 |---|---|---|---|
-| DHT22 Temp & Humidity | `PIN_DHT` / `PIN_TEMP` | `GPIO 23` | Digital 1-Wire |
-| LDR Light Sensor | `PIN_LDR` | `GPIO 35` | Analog (ADC1_CH7) |
-| Soil Moisture Sensor | `PIN_SOIL_POT` | `GPIO 34` | Analog (ADC1_CH6) |
-| Mode Selector Button | `PIN_BTN_MODE` | `GPIO 32` | Digital Input (Pullup) |
-| Irrigation Manual Button | `PIN_BTN_IRRIG` | `GPIO 14` | Digital Input (Pullup) |
-| Ventilation Manual Button | `PIN_BTN_VENT` | `GPIO 27` | Digital Input (Pullup) |
-| Light Manual Button | `PIN_BTN_LIGHT` | `GPIO 26` | Digital Input (Pullup) |
-| Ventilation Servo PWM | `PIN_ACTUATOR_VENT` | `GPIO 13` | Servo PWM Output |
-| Irrigation Relay | `PIN_ACTUATOR_IRRIG` | `GPIO 33` | Digital Relay Output |
-| Growth Light Relay | `PIN_ACTUATOR_LIGHT` | `GPIO 25` | Digital Relay Output |
-| Status LED Normal | `PIN_LED_GREEN` | `GPIO 15` | Digital Output |
-| Status LED Error | `PIN_LED_RED` | `GPIO 4` | Digital Output |
-| Acoustic Alert Buzzer | `PIN_BUZZER` | `GPIO 18` | PWM / Tone |
-| OLED Display I2C SDA | `PIN_OLED_SDA` | `GPIO 21` | I2C Data |
-| OLED Display I2C SCL | `PIN_OLED_SCL` | `GPIO 22` | I2C Clock |
+| DHT11 Temp & Humidity | `PIN_DHT` | `GPIO 23` | Digital Single-Bus |
+| LDR Light Sensor | `PIN_LDR` | `GPIO 35` | Analog (ADC1_CH7, 0..3.3V) |
+| Soil Moisture Potentiometer | `PIN_SOIL_POT` | `GPIO 34` | Analog (ADC1_CH6, 0..3.3V) |
+| Mode Selector Button | `PIN_BTN_MODE` | `GPIO 32` | Digital Input (Pullup, Active-LOW) |
+| Irrigation Manual Button | `PIN_BTN_IRRIG` | `GPIO 14` | Digital Input (Pullup, Active-LOW) |
+| Ventilation Manual Button | `PIN_BTN_VENT` | `GPIO 27` | Digital Input (Pullup, Active-LOW) |
+| Light Manual Button | `PIN_BTN_LIGHT` | `GPIO 26` | Digital Input (Pullup, Active-LOW) |
+| Ventilation Servo PWM | `PIN_ACTUATOR_VENT` | `GPIO 13` | 50Hz PWM Output (0°..90°) |
+| Irrigation 8x8 Dot Matrix | `PIN_ACTUATOR_IRRIG` | `GPIO 33` | Digital Output (**Active-LOW**) |
+| Growth Light Yellow LED | `PIN_ACTUATOR_LIGHT` | `GPIO 25` | Digital Output (Active-HIGH) |
+| Status LED Normal | `PIN_LED_GREEN` | `GPIO 15` | Digital Output (Constant ON) |
+| Status LED Error | `PIN_LED_RED` | `GPIO 4` | Digital Output (Active on Alert/Hazard) |
+| Acoustic Alert Buzzer | `PIN_BUZZER` | `GPIO 18` | PWM / Tone (1kHz on Alarm) |
+| OLED Display I2C SDA | `PIN_OLED_SDA` | `GPIO 21` | I2C Data (Address 0x3C) |
+| OLED Display I2C SCL | `PIN_OLED_SCL` | `GPIO 22` | I2C Clock (Address 0x3C) |
 
 ---
 
 ### Requirement: Actuator Drivers & Positioning
-Actuators SHALL execute state transitions based on commands from `GreenhouseController`.
+Actuators SHALL execute state transitions based on commands from `GreenhouseController` conforming to their respective electrical polarities.
 
 #### Scenario: Ventilation window positioning
-- **GIVEN** a ventilation command from the controller
+- **GIVEN** a ventilation command from `GreenhouseController`
 - **WHEN** the window is commanded `OPEN`
-- **THEN** `VentilationActuator` SHALL write a $90^\circ$ PWM angle to `GPIO 5`
+- **THEN** `ServoVentilationActuator` SHALL write a $90^\circ$ PWM pulse to `GPIO 13` (`PIN_ACTUATOR_VENT`)
 - **WHEN** the window is commanded `CLOSED`
-- **THEN** `VentilationActuator` SHALL write a $0^\circ$ PWM angle to `GPIO 5`
+- **THEN** `ServoVentilationActuator` SHALL write a $0^\circ$ PWM pulse to `GPIO 13` (`PIN_ACTUATOR_VENT`)
 
-#### Scenario: Irrigation pump relay driving
-- **GIVEN** an irrigation command from the controller
+#### Scenario: Irrigation 8x8 matrix active-LOW driving
+- **GIVEN** an irrigation command from `GreenhouseController`
 - **WHEN** irrigation is commanded `ACTIVE`
-- **THEN** `IrrigationActuator` SHALL drive `GPIO 16` `HIGH`
+- **THEN** `DotMatrix8x8IrrigationActuator` SHALL drive `GPIO 33` (`PIN_ACTUATOR_IRRIG`) `LOW`
 - **WHEN** irrigation is commanded `INACTIVE`
-- **THEN** `IrrigationActuator` SHALL drive `GPIO 16` `LOW`
+- **THEN** `DotMatrix8x8IrrigationActuator` SHALL drive `GPIO 33` (`PIN_ACTUATOR_IRRIG`) `HIGH`
 
-#### Scenario: Supplemental light relay driving
-- **GIVEN** a lighting command from the controller
+#### Scenario: Supplemental yellow LED light driving
+- **GIVEN** a lighting command from `GreenhouseController`
 - **WHEN** supplemental light is commanded `ACTIVE`
-- **THEN** `LightActuator` SHALL drive `GPIO 17` `HIGH`
+- **THEN** `YellowLedLightActuator` SHALL drive `GPIO 25` (`PIN_ACTUATOR_LIGHT`) `HIGH`
 - **WHEN** supplemental light is commanded `INACTIVE`
-- **THEN** `LightActuator` SHALL drive `GPIO 17` `LOW`
+- **THEN** `YellowLedLightActuator` SHALL drive `GPIO 25` (`PIN_ACTUATOR_LIGHT`) `LOW`
 
 ---
 
 ### Requirement: Hardware Push-Button Manual Overrides
-In `SystemMode::MANUAL`, operators SHALL have direct hardware button override capability over actuators.
+The system SHALL support push-button manual actuator overrides with mode-specific execution lifecycles and microsecond interrupt debouncing.
 
-#### Scenario: Manual irrigation button press
-- **GIVEN** the system is in `SystemMode::MANUAL`
-- **WHEN** `PIN_BTN_IRRIG` is pressed and debounced
-- **THEN** the system SHALL toggle the current state of the irrigation pump
-- **AND** if turned `ON`, the system SHALL start a 10-second FreeRTOS safety auto-off timer (`IRRIGATION_TIMEOUT_MS`)
+#### Scenario: Manual override activation while in AUTOMATIC mode
+- **GIVEN** the global system is in `SystemMode::AUTOMATIC`
+- **AND** a target actuator is currently inactive/OFF
+- **WHEN** the associated button (`PIN_BTN_IRRIG`, `PIN_BTN_VENT`, or `PIN_BTN_LIGHT`) is pressed
+- **THEN** `GreenhouseController` SHALL set the target subsystem to `ControlMode::MANUAL` and `ManualState::ON`
+- **AND** `GreenhouseController` SHALL turn the actuator `ON`
+- **AND** `GreenhouseController` SHALL start a one-shot FreeRTOS safety auto-off timer (10s for Irrigation, 30s for Vent, 60s for Light)
 
-#### Scenario: Manual ventilation button press
-- **GIVEN** the system is in `SystemMode::MANUAL`
-- **WHEN** `PIN_BTN_VENT` is pressed and debounced
-- **THEN** the system SHALL toggle the ventilation servo position between $0^\circ$ and $90^\circ$
-- **AND** if turned `ON`, the system SHALL start a 30-second FreeRTOS safety auto-off timer (`VENTILATION_TIMEOUT_MS`)
+#### Scenario: Manual override deactivation while in AUTOMATIC mode
+- **GIVEN** the global system is in `SystemMode::AUTOMATIC`
+- **AND** a target actuator is currently active/ON (via auto rule or prior manual override)
+- **WHEN** the associated button is pressed
+- **THEN** `GreenhouseController` SHALL set the target subsystem to `ControlMode::MANUAL` and `ManualState::OFF`
+- **AND** `GreenhouseController` SHALL turn the actuator `OFF`
+- **AND** `GreenhouseController` SHALL stop any running safety timer for that actuator
+- **AND** automatic rules SHALL NOT turn the actuator back ON until the button is toggled again or global mode is cycled
 
-#### Scenario: Manual light button press
-- **GIVEN** the system is in `SystemMode::MANUAL`
-- **WHEN** `PIN_BTN_LIGHT` is pressed and debounced
-- **THEN** the system SHALL toggle the supplemental growth light state
-- **AND** if turned `ON`, the system SHALL start a 60-second FreeRTOS safety auto-off timer (`LIGHT_TIMEOUT_MS`)
+#### Scenario: Manual toggle while in MANUAL mode
+- **GIVEN** the global system is in `SystemMode::MANUAL`
+- **WHEN** an actuator button is pressed
+- **THEN** `GreenhouseController` SHALL toggle the target subsystem's `manualState` between `ON` and `OFF`
+- **AND** the actuator SHALL turn `ON` or `OFF` accordingly
+- **AND** NO safety auto-off timer SHALL be armed (actuator operates indefinitely until toggled off, subject to critical overwater safety)
+
+#### Scenario: Microsecond interrupt debounce & dispatch
+- **GIVEN** an active-LOW button falling edge on any button GPIO
+- **WHEN** `ButtonDriver::isrHandler` executes
+- **THEN** the ISR SHALL query `esp_timer_get_time() / 1000ULL` to verify the 50ms debounce threshold
+- **AND** on a valid edge, the ISR SHALL post a `ButtonEvent` to `buttonEventQueue` via `xQueueSendFromISR`
+- **AND** the ISR SHALL set `EVENT_BIT_BUTTON_EVENT` in `systemEventGroup` via `xEventGroupSetBitsFromISR`
+
 

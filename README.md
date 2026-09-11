@@ -39,16 +39,16 @@ The **ESP32 Smart Greenhouse Controller** continuously monitors critical environ
 
 ## 🔌 Actual Hardware Implementation & Pinout
 
-The system is configured around the ESP32 board pinout defined in [include/config.h](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/include/config.h):
+The system is configured around the ESP32 board pinout defined in [include/config.h](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/include/config.h). For a detailed wiring guide, schematics, and power architecture, see the [Hardware Connection Schema & Wiring Guide](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/docs/hardware_connection_schema.md).
 
 ### Inputs (Sensors & Buttons)
 
 | Sensor / Button | Config Constant | GPIO Pin | Interface Type | Description |
 | :--- | :--- | :--- | :--- | :--- |
-| **DHT22 Temperature & Humidity** | `PIN_DHT` / `PIN_TEMP` | `GPIO 19` | Digital (1-Wire) | Measures air temperature (°C) and humidity (%) |
+| **DHT11 / DHT22 Temp & Humidity** | `PIN_DHT` | `GPIO 23` | Digital (1-Wire) | Measures air temperature (°C) and humidity (%) |
 | **LDR Photoresistor** | `PIN_LDR` | `GPIO 35` | Analog (ADC1_CH7) | Measures ambient light intensity |
-| **Soil Moisture Sensor** | `PIN_SOIL_POT` | `GPIO 34` | Analog (ADC1_CH6) | Capacitive soil moisture reading (%) |
-| **Mode Selector Button** | `PIN_BTN_MODE` | `GPIO 12` | Digital Input (Pullup) | Toggles between AUTO and MANUAL system modes |
+| **Soil Moisture Sensor** | `PIN_SOIL_POT` | `GPIO 34` | Analog (ADC1_CH6) | Capacitive / analog soil moisture reading (%) |
+| **Mode Selector Button** | `PIN_BTN_MODE` | `GPIO 32` | Digital Input (Pullup) | Toggles between AUTO and MANUAL system modes |
 | **Irrigation Manual Button** | `PIN_BTN_IRRIG` | `GPIO 14` | Digital Input (Pullup) | Manual toggle for irrigation pump |
 | **Ventilation Manual Button** | `PIN_BTN_VENT` | `GPIO 27` | Digital Input (Pullup) | Manual toggle for window servo |
 | **Light Manual Button** | `PIN_BTN_LIGHT` | `GPIO 26` | Digital Input (Pullup) | Manual toggle for growth lighting |
@@ -57,21 +57,23 @@ The system is configured around the ESP32 board pinout defined in [include/confi
 
 | Actuator / Component | Config Constant | GPIO Pin | Output Type | Description |
 | :--- | :--- | :--- | :--- | :--- |
-| **Ventilation Window Servo** | `PIN_ACTUATOR_VENT` | `GPIO 5` | Servo PWM | Roof vent position ($0^\circ$ closed, $90^\circ$ open) |
-| **Irrigation Actuator / Pump** | `PIN_ACTUATOR_IRRIG` | `GPIO 16` | Relay / NeoPixel Ring | Activates irrigation pump / visual ring |
-| **Growth Light Actuator** | `PIN_ACTUATOR_LIGHT` | `GPIO 17` | Relay / NeoPixel Strip | Activates supplemental lighting / strip |
+| **Ventilation Window Servo** | `PIN_ACTUATOR_VENT` | `GPIO 13` | Servo PWM | Roof vent position ($0^\circ$ closed, $90^\circ$ open) |
+| **Irrigation Actuator / Pump** | `PIN_ACTUATOR_IRRIG` | `GPIO 33` | Digital (Active-LOW) | 8x8 Dot Matrix / Relay for irrigation pump |
+| **Growth Light Actuator** | `PIN_ACTUATOR_LIGHT` | `GPIO 25` | Digital Output | Yellow LED / Relay for supplemental lighting |
 | **Status LED: Normal System** | `PIN_LED_GREEN` | `GPIO 15` | Digital Output | Green indicator for nominal system state |
 | **Status LED: System Error** | `PIN_LED_RED` | `GPIO 4` | Digital Output | Red indicator for sensor read errors |
 | **Acoustic Alert Buzzer** | `PIN_BUZZER` | `GPIO 18` | PWM / Tone | Audible alarm for out-of-bounds readings |
 | **OLED Display SDA** | `PIN_OLED_SDA` | `GPIO 21` | I2C Data | SSD1306 OLED display data bus |
 | **OLED Display SCL** | `PIN_OLED_SCL` | `GPIO 22` | I2C Clock | SSD1306 OLED display clock bus |
 
+> *Note for Wokwi Simulation*: The virtual simulation circuit in [diagram.json](file:///Users/oleksiizozulenko/Documents/PlatformIO/Projects/esp32-greenhouse-controller/diagram.json) maps simulation-specific visual peripherals (Mode on GPIO 12, DHT on GPIO 19, Servo on GPIO 5, Strip on GPIO 17, Ring on GPIO 16).
+
 ---
 
 ## ⚡ Power Supply Architecture
 
 1. **Main 5V DC Supply Rail**:
-   - Supplies power to high-current components: Servo motor (`GPIO 5`), Irrigation Actuator (`GPIO 16`), Growth Lighting (`GPIO 17`), and Relays.
+   - Supplies power to high-current components: Servo motor (`GPIO 13`), Irrigation Actuator (`GPIO 33`), Growth Lighting (`GPIO 25`), and Relays.
    - Feeds into the ESP32 `VIN` pin.
 2. **ESP32 Internal 3.3V Regulator**:
    - Supplies regulated 3.3V DC to analog sensors (LDR, Capacitive Soil Moisture) and digital sensors (DHT22) to ensure precise ADC readings and signal stability.
